@@ -1,5 +1,7 @@
 package de.mindarchitects.tlm.ui;
 
+import org.kordamp.ikonli.materialdesign2.*;
+
 import de.mindarchitects.tlm.api.ApiClient;
 import de.mindarchitects.tlm.mail.MailTemplate;
 import de.mindarchitects.tlm.mail.Mailer;
@@ -62,9 +64,9 @@ public final class SettingsDialog extends Dialog<ButtonType> {
         fromName.setText(settings.fromName());
         fromAddress.setText(settings.fromAddress());
 
-        Button generate = new Button("Schlüssel erzeugen …");
+        Button generate = Fx.button("Schlüssel erzeugen …", MaterialDesignK.KEY_PLUS);
         generate.setOnAction(e -> generateKey());
-        Button testApi = new Button("API testen");
+        Button testApi = Fx.button("API testen", MaterialDesignL.LAN_CONNECT);
         testApi.setOnAction(e -> {
             apply();
             Fx.async(window(), () -> {
@@ -72,7 +74,7 @@ public final class SettingsDialog extends Dialog<ButtonType> {
                 return null;
             }, r -> Fx.info(window(), "Verbindung OK", "Die API hat den Schlüssel akzeptiert."));
         });
-        Button testMail = new Button("Test-Mail an Absender senden");
+        Button testMail = Fx.button("Test-Mail an Absender senden", MaterialDesignE.EMAIL_CHECK);
         testMail.setOnAction(e -> {
             apply();
             Fx.async(window(), () -> {
@@ -174,6 +176,7 @@ public final class SettingsDialog extends Dialog<ButtonType> {
         info.getDialogPane().setContent(hashField);
         ButtonType copy = new ButtonType("Kopieren", ButtonBar.ButtonData.LEFT);
         info.getButtonTypes().setAll(copy, ButtonType.OK);
+        Fx.decorate(info.getDialogPane().lookupButton(copy), MaterialDesignC.CONTENT_COPY);
         if (info.showAndWait().orElse(ButtonType.OK) == copy) {
             ClipboardContent cc = new ClipboardContent();
             cc.putString(hashField.getText());

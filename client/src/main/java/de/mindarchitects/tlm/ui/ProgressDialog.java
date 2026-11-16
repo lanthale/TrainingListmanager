@@ -1,5 +1,7 @@
 package de.mindarchitects.tlm.ui;
 
+import org.kordamp.ikonli.materialdesign2.*;
+
 import javafx.application.Platform;
 import javafx.concurrent.Task;
 import javafx.geometry.Insets;
@@ -44,8 +46,8 @@ public final class ProgressDialog {
         logArea.setWrapText(true);
         VBox.setVgrow(logArea, Priority.ALWAYS);
 
-        Button cancel = new Button("Abbrechen");
-        Button close = new Button("Schließen");
+        Button cancel = Fx.button("Abbrechen", MaterialDesignC.CANCEL);
+        Button close = Fx.button("Schließen", MaterialDesignC.CLOSE);
         close.setDisable(true);
         close.setDefaultButton(true);
         HBox buttons = new HBox(8, cancel, close);

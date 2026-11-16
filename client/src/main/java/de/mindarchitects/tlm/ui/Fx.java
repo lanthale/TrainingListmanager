@@ -1,9 +1,13 @@
 package de.mindarchitects.tlm.ui;
 
 import javafx.concurrent.Task;
+import javafx.scene.Node;
 import javafx.scene.control.Alert;
+import javafx.scene.control.Button;
 import javafx.scene.control.TextArea;
 import javafx.stage.Window;
+import org.kordamp.ikonli.Ikon;
+import org.kordamp.ikonli.javafx.FontIcon;
 
 import java.util.concurrent.Callable;
 import java.util.function.Consumer;
@@ -51,6 +55,28 @@ public final class Fx {
         a.setHeaderText(header);
         a.setContentText(message);
         a.showAndWait();
+    }
+
+    /** Symbol (Ikonli, Material Design Icons) für Buttons. */
+    public static FontIcon icon(Ikon ikon) {
+        FontIcon icon = new FontIcon(ikon);
+        icon.setIconSize(16);
+        return icon;
+    }
+
+    /** Button mit Symbol links vom Text. */
+    public static Button button(String text, Ikon ikon) {
+        Button b = new Button(text, icon(ikon));
+        b.setGraphicTextGap(6);
+        return b;
+    }
+
+    /** Symbol an einen bereits vorhandenen Button (z. B. Dialog-Button) hängen. */
+    public static void decorate(Node button, Ikon ikon) {
+        if (button instanceof Button b) {
+            b.setGraphic(icon(ikon));
+            b.setGraphicTextGap(6);
+        }
     }
 
     public static TextArea textArea(String text, int rows) {

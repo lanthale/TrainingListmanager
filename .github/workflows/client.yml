@@ -19,13 +19,13 @@ jobs:
         include:
           - os: macos-latest
             type: dmg
-            extra: --mac-package-name TrainingListmanager
+            extra: --mac-package-name TrainingListmanager --icon client/packaging/TrainingListmanager.icns
           - os: windows-latest
             type: msi
-            extra: --win-menu --win-shortcut --win-dir-chooser --win-menu-group TrainingListmanager --win-upgrade-uuid 6c3b2a3e-8f43-4d9a-9a8e-3f2f6a1c7d41
+            extra: --win-menu --win-shortcut --win-dir-chooser --win-menu-group TrainingListmanager --win-upgrade-uuid 6c3b2a3e-8f43-4d9a-9a8e-3f2f6a1c7d41 --icon client/packaging/TrainingListmanager.ico
           - os: ubuntu-latest
             type: deb
-            extra: --linux-shortcut --linux-menu-group Office --linux-package-name traininglistmanager
+            extra: --linux-shortcut --linux-menu-group Office --linux-package-name traininglistmanager --icon client/packaging/TrainingListmanager.png
     runs-on: ${{ matrix.os }}
     defaults:
       run:

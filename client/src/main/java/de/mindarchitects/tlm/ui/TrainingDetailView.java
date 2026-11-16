@@ -1,5 +1,7 @@
 package de.mindarchitects.tlm.ui;
 
+import org.kordamp.ikonli.materialdesign2.*;
+
 import de.mindarchitects.tlm.Fmt;
 import de.mindarchitects.tlm.api.Model.Invitation;
 import de.mindarchitects.tlm.api.Model.Registration;
@@ -27,14 +29,14 @@ public final class TrainingDetailView extends VBox {
     private final TableView<Invitation> invitations = new TableView<>();
     private final Tab regTab = new Tab();
     private final Tab invTab = new Tab();
-    private final Button inviteMore = new Button("Weitere einladen …");
-    private final Button resend = new Button("Erneut senden …");
+    private final Button inviteMore = Fx.button("Weitere einladen …", MaterialDesignA.ACCOUNT_PLUS);
+    private final Button resend = Fx.button("Erneut senden …", MaterialDesignE.EMAIL_SYNC);
 
     private boolean updating;
     private TrainingDetail current;
 
     public TrainingDetailView(Consumer<Boolean> onActiveChanged, Runnable onInviteMore,
-                              Consumer<List<Invitation>> onResend) {
+                              Consumer<List<Invitation>> onResend, Runnable onExport) {
         super(10);
         setPadding(new Insets(14));
 
@@ -86,7 +88,14 @@ public final class TrainingDetailView extends VBox {
         tabs.setTabClosingPolicy(TabPane.TabClosingPolicy.UNAVAILABLE);
         VBox.setVgrow(tabs, Priority.ALWAYS);
 
-        getChildren().addAll(title, meta, description, active, tabs);
+        Button export = Fx.button("Excel-Export …", MaterialDesignM.MICROSOFT_EXCEL);
+        export.setOnAction(e -> onExport.run());
+        Region headSpacer = new Region();
+        HBox.setHgrow(headSpacer, Priority.ALWAYS);
+        HBox activeRow = new HBox(8, active, headSpacer, export);
+        activeRow.setStyle("-fx-alignment: center-left;");
+
+        getChildren().addAll(title, meta, description, activeRow, tabs);
         show(null);
     }
 

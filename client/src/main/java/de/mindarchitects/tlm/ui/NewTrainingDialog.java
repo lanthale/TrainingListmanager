@@ -1,5 +1,7 @@
 package de.mindarchitects.tlm.ui;
 
+import org.kordamp.ikonli.materialdesign2.*;
+
 import javafx.event.ActionEvent;
 import javafx.geometry.Insets;
 import javafx.scene.Node;
@@ -62,6 +64,8 @@ public final class NewTrainingDialog extends Dialog<NewTrainingDialog.Data> {
 
         ButtonType send = new ButtonType("Anlegen & senden", ButtonBar.ButtonData.OK_DONE);
         getDialogPane().getButtonTypes().addAll(send, ButtonType.CANCEL);
+        Fx.decorate(getDialogPane().lookupButton(send), MaterialDesignS.SEND);
+        Fx.decorate(getDialogPane().lookupButton(ButtonType.CANCEL), MaterialDesignC.CLOSE);
 
         Node sendButton = getDialogPane().lookupButton(send);
         sendButton.addEventFilter(ActionEvent.ACTION, e -> {

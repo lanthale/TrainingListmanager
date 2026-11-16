@@ -58,10 +58,10 @@ Die Pakete sind nicht signiert:
 1. *Einstellungen* öffnen und **Schlüssel erzeugen** klicken.
    Der Client zeigt eine Zeile `'api_key_hash' => '…',`. Diese Zeile in `config.php` auf dem Server eintragen.
    Der Schlüssel selbst bleibt im Schlüsselbund des Rechners, auf dem Server liegt nur sein Hash.
-2. SMTP eintragen, z. B. für ein IONOS-Postfach:
-   - Server `smtp.ionos.de`, Port 587, STARTTLS
-   - Benutzer = Postfach-Adresse, dazu das Passwort
-   - Absendername und Absenderadresse
+2. SMTP prüfen und das Passwort eintragen. Vorbelegt sind:
+   - Server `smtps.udag.de`, Port 465 mit SSL/TLS (alternativ Port 587 mit STARTTLS)
+   - Benutzer und Absenderadresse `office@mind-architects.de`
+   - Nur das **Passwort** und optional den Absendernamen tragen Sie selbst ein.
 3. Die Verbindung mit **API testen** und **Test-Mail senden** prüfen.
 
 API-Schlüssel und SMTP-Passwort liegen im Schlüsselbund des Betriebssystems: macOS-Keychain, Windows-Anmeldeinformationsverwaltung oder Linux Secret Service. Alle anderen Einstellungen speichert Java in den Benutzer-Einstellungen.
@@ -73,6 +73,7 @@ API-Schlüssel und SMTP-Passwort liegen im Schlüsselbund des Betriebssystems: m
 - **Einladungen:** Hier sehen Sie, wann jede Einladung gesendet wurde und ob sich der Teilnehmer registriert hat. Zwei Aktionen sind möglich:
   - *Weitere einladen …* fügt neue Adressen zum Training hinzu.
   - *Erneut senden …* erzeugt für die gewählten, noch unbenutzten Einladungen einen neuen Link. Der alte Link wird dabei ungültig.
+- **Excel-Export …:** speichert eine `.xlsx` mit den Blättern „Teilnehmer“ (alle Registrierungen, sortiert nach Nachname, mit Filter) und „Einladungen“ (Status jeder Einladung). Die Datei wird danach geöffnet.
 - **Registrierung offen:** Ist der Haken entfernt, ist keine Registrierung mehr möglich, auch nicht mit gültigem Code.
 
 ### Entwickeln
@@ -81,6 +82,14 @@ JDK 27 und Maven werden benötigt.
 ```
 mvn -f client/pom.xml javafx:run      # starten
 mvn -f client/pom.xml package         # Jars nach client/target/libs
+```
+
+**App-Icon ändern:** Die Zeichnung steht in `client/packaging/IconGen.java`. Nach einer Änderung neu erzeugen (macOS, wegen `iconutil`):
+
+```
+cd client
+java -Djava.awt.headless=true packaging/IconGen.java .
+iconutil -c icns packaging/icon.iconset -o packaging/TrainingListmanager.icns
 ```
 
 ## API (`public/api.php`)

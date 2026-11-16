@@ -6,10 +6,40 @@ declare(strict_types=1);
  * Aktionen über ?action=… (siehe README).
  */
 
+// Vorab-Prüfungen mit lesbarer JSON-Meldung statt leerem HTTP 500
+function api_fail_early($message)
+{
+    http_response_code(500);
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode(array('error' => $message));
+    exit;
+}
+if (PHP_VERSION_ID < 70400) {
+    api_fail_early('PHP ' . PHP_VERSION . ' ist zu alt, benötigt wird mindestens 7.4 (empfohlen 8.1+).');
+}
+foreach (array('api.php', 'invitation.php', 'db.php') as $f) {
+    if (!is_file(dirname(__DIR__) . '/src/' . $f)) {
+        api_fail_early("Datei src/$f fehlt auf dem Server.");
+    }
+}
+if (!is_file(dirname(__DIR__) . '/config.php')) {
+    api_fail_early('config.php fehlt auf dem Server (neben public/).');
+}
+foreach (array('pdo_mysql', 'mbstring') as $ext) {
+    if (!extension_loaded($ext)) {
+        api_fail_early("PHP-Erweiterung $ext ist nicht aktiv.");
+    }
+}
+
 require_once dirname(__DIR__) . '/src/api.php';
+if (!function_exists('create_invitation_token')) {
+    api_fail_early('src/invitation.php ist veraltet. Bitte die aktuelle Version hochladen.');
+}
 
 try {
+    $authenticated = false;
     require_api_key();
+    $authenticated = true;
     $action = (string)($_GET['action'] ?? '');
     $pdo = db();
 
@@ -167,7 +197,12 @@ try {
         $pdo->rollBack();
     }
     error_log('TrainingListmanager API: ' . $e->getMessage());
-    json_out(['error' => 'Serverfehler'], 500);
+    // Details nur für den angemeldeten Client (Admin), sonst generisch
+    $detail = !empty($authenticated) ? ': ' . $e->getMessage() : '';
+    if (!empty($authenticated) && $e instanceof PDOException && strpos($e->getMessage(), 'sent_at') !== false) {
+        $detail .= ' – bitte sql/migrations/002_invitations_sent_at.sql in phpMyAdmin ausführen.';
+    }
+    json_out(['error' => 'Serverfehler' . $detail], 500);
 }
 
 function normalize_training(array $t): array

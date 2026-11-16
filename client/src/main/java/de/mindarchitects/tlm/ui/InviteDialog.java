@@ -1,5 +1,7 @@
 package de.mindarchitects.tlm.ui;
 
+import org.kordamp.ikonli.materialdesign2.*;
+
 import javafx.event.ActionEvent;
 import javafx.scene.control.ButtonBar;
 import javafx.scene.control.ButtonType;
@@ -25,6 +27,8 @@ public final class InviteDialog extends Dialog<InviteDialog.Data> {
 
         ButtonType send = new ButtonType("Senden", ButtonBar.ButtonData.OK_DONE);
         getDialogPane().getButtonTypes().addAll(send, ButtonType.CANCEL);
+        Fx.decorate(getDialogPane().lookupButton(send), MaterialDesignS.SEND);
+        Fx.decorate(getDialogPane().lookupButton(ButtonType.CANCEL), MaterialDesignC.CLOSE);
         getDialogPane().lookupButton(send).addEventFilter(ActionEvent.ACTION, e -> {
             String error = composer.validate();
             if (error != null) {

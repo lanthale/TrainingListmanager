@@ -40,6 +40,23 @@
             <artifactId>core</artifactId>
             <version>3.5.4</version>
         </dependency>
+        <!-- Symbole auf den Buttons (Material Design Icons) -->
+        <dependency>
+            <groupId>org.kordamp.ikonli</groupId>
+            <artifactId>ikonli-javafx</artifactId>
+            <version>12.4.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.kordamp.ikonli</groupId>
+            <artifactId>ikonli-materialdesign2-pack</artifactId>
+            <version>12.4.0</version>
+        </dependency>
+        <!-- Excel-Export (.xlsx), klein und ohne Apache POI -->
+        <dependency>
+            <groupId>org.dhatim</groupId>
+            <artifactId>fastexcel</artifactId>
+            <version>0.20.2</version>
+        </dependency>
         <dependency>
             <groupId>com.github.javakeyring</groupId>
             <artifactId>java-keyring</artifactId>

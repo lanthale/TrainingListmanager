@@ -1,5 +1,7 @@
 package de.mindarchitects.tlm;
 
+import org.kordamp.ikonli.materialdesign2.*;
+
 import de.mindarchitects.tlm.InvitationService.TrainingInfo;
 import de.mindarchitects.tlm.api.Model.Invitation;
 import de.mindarchitects.tlm.api.Model.Training;
@@ -17,8 +19,10 @@ import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.Priority;
 import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
+import javafx.stage.FileChooser;
 import javafx.stage.Stage;
 
+import java.io.File;
 import java.util.List;
 
 /** Hauptfenster: Trainingsliste links, Details rechts. */
@@ -41,12 +45,12 @@ public class App extends Application {
     public void start(Stage stage) {
         this.stage = stage;
 
-        Button newBtn = new Button("Neues Training …");
+        Button newBtn = Fx.button("Neues Training …", MaterialDesignC.CALENDAR_PLUS);
         newBtn.setDefaultButton(true);
         newBtn.setOnAction(e -> newTraining());
-        Button refresh = new Button("Aktualisieren");
+        Button refresh = Fx.button("Aktualisieren", MaterialDesignR.REFRESH);
         refresh.setOnAction(e -> reload());
-        Button settingsBtn = new Button("Einstellungen …");
+        Button settingsBtn = Fx.button("Einstellungen …", MaterialDesignC.COG);
         settingsBtn.setOnAction(e -> openSettings());
         Region spacer = new Region();
         javafx.scene.layout.HBox.setHgrow(spacer, Priority.ALWAYS);
@@ -59,7 +63,7 @@ public class App extends Application {
         VBox.setVgrow(list, Priority.ALWAYS);
         left.setMinWidth(240);
 
-        detail = new TrainingDetailView(this::setActive, this::inviteMore, this::resend);
+        detail = new TrainingDetailView(this::setActive, this::inviteMore, this::resend, this::exportExcel);
 
         SplitPane split = new SplitPane(left, detail);
         split.setOrientation(Orientation.HORIZONTAL);
@@ -69,6 +73,12 @@ public class App extends Application {
         status.setPadding(new Insets(4, 10, 4, 10));
         BorderPane root = new BorderPane(split, toolbar, null, status, null);
 
+        for (int size : new int[]{16, 32, 64, 128, 256}) {
+            var in = App.class.getResourceAsStream("/icons/app-" + size + ".png");
+            if (in != null) {
+                stage.getIcons().add(new javafx.scene.image.Image(in));
+            }
+        }
         stage.setTitle("TrainingListmanager");
         stage.setScene(new Scene(root, 1150, 720));
         stage.show();
@@ -168,6 +178,37 @@ public class App extends Application {
             ProgressDialog.run(stage, "Einladungen erneut senden",
                     p -> service.resend(info(d), ids, data.subject(), data.body(), p),
                     this::reload);
+        });
+    }
+
+    private void exportExcel() {
+        TrainingDetail d = detail.current();
+        if (d == null) return;
+        FileChooser chooser = new FileChooser();
+        chooser.setTitle("Teilnehmer als Excel speichern");
+        chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter("Excel-Arbeitsmappe (*.xlsx)", "*.xlsx"));
+        chooser.setInitialFileName(ExcelExport.suggestedFileName(d.training()));
+        String lastDir = settings.exportDir();
+        if (!lastDir.isEmpty() && new File(lastDir).isDirectory()) {
+            chooser.setInitialDirectory(new File(lastDir));
+        }
+        File file = chooser.showSaveDialog(stage);
+        if (file == null) return;
+        if (!file.getName().toLowerCase().endsWith(".xlsx")) {
+            file = new File(file.getParentFile(), file.getName() + ".xlsx");
+        }
+        settings.exportDir(file.getParent());
+        settings.flush();
+        File target = file;
+        status.setText("Exportiere …");
+        // Aktuellen Stand vom Server holen, damit die Liste vollständig ist
+        Fx.async(stage, () -> {
+            TrainingDetail fresh = service.api().training(d.training().id());
+            ExcelExport.write(fresh, target.toPath());
+            return fresh;
+        }, fresh -> {
+            status.setText(fresh.registrations().size() + " Teilnehmer exportiert nach " + target.getName());
+            getHostServices().showDocument(target.toURI().toString());
         });
     }
 

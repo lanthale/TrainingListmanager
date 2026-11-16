@@ -5,13 +5,18 @@ require_once __DIR__ . '/invitation.php';
 
 final class ApiError extends RuntimeException
 {
-    public function __construct(string $message, public readonly int $status = 400)
+    /** @var int */
+    public $status;
+
+    public function __construct(string $message, int $status = 400)
     {
         parent::__construct($message);
+        $this->status = $status;
     }
 }
 
-function json_out(mixed $data, int $status = 200): never
+/** Gibt JSON aus und beendet das Skript. */
+function json_out($data, int $status = 200): void
 {
     http_response_code($status);
     header('Content-Type: application/json; charset=utf-8');
@@ -25,8 +30,14 @@ function require_api_key(): void
 {
     $expected = (string)(app_config()['api_key_hash'] ?? '');
     $key = (string)($_SERVER['HTTP_X_API_KEY'] ?? '');
-    if ($expected === '' || $key === '' || !hash_equals(strtolower($expected), hash('sha256', $key))) {
-        throw new ApiError('Nicht autorisiert', 401);
+    if ($expected === '') {
+        throw new ApiError('Nicht autorisiert: in config.php ist kein api_key_hash eingetragen', 401);
+    }
+    if ($key === '') {
+        throw new ApiError('Nicht autorisiert: kein API-Schlüssel mitgeschickt', 401);
+    }
+    if (!hash_equals(strtolower(trim($expected)), hash('sha256', trim($key)))) {
+        throw new ApiError('Nicht autorisiert: API-Schlüssel passt nicht zum api_key_hash in config.php', 401);
     }
 }
 
