@@ -28,7 +28,8 @@ jobs:
         include:
           - os: macos-15   # Apple Silicon; fest statt macos-latest (dort oft keine freien Runner)
             type: dmg
-            extra: --mac-package-name TrainingListmanager --icon client/packaging/TrainingListmanager.icns
+            # Bundle-Name (Menüleiste) max. 16 Zeichen; .app-Datei heißt weiter TrainingListmanager.app
+            extra: --mac-package-name "TL Manager" --icon client/packaging/TrainingListmanager.icns
           - os: windows-latest
             type: msi
             extra: --win-menu --win-shortcut --win-dir-chooser --win-menu-group TrainingListmanager --win-upgrade-uuid 6c3b2a3e-8f43-4d9a-9a8e-3f2f6a1c7d41 --icon client/packaging/TrainingListmanager.ico
