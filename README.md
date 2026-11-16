@@ -40,7 +40,7 @@ client/                      JavaFX-Desktop-Client (Maven)
 ## Desktop-Client
 
 ### Installieren
-Die fertigen Installer baut GitHub Actions bei jedem Push auf `main`. Sie liegen unter **Actions → Client bauen → Artifacts**:
+Die fertigen Installer baut GitHub Actions, sobald auf GitHub ein Release veröffentlicht wird. Sie hängen dann am Release unter **Releases**:
 
 | System | Datei |
 |---|---|
@@ -54,7 +54,17 @@ Die Pakete sind nicht signiert:
 - **macOS:** Beim ersten Start mit Rechtsklick → *Öffnen* bestätigen, oder unter *Systemeinstellungen → Datenschutz & Sicherheit* „Trotzdem öffnen“ wählen.
 - **Windows:** Bei der SmartScreen-Warnung *Weitere Informationen → Trotzdem ausführen* wählen.
 
-**Release erstellen:** In `client/pom.xml` die `<version>` erhöhen, committen und einen Tag `vX.Y.Z` pushen, zum Beispiel `git tag v1.0.1 && git push origin v1.0.1`. Der Workflow baut die Installer mit der Version aus dem Tag, signiert sie und hängt sie an ein GitHub-Release. Die Versionshinweise trägt man danach auf GitHub im Release ein. Der Client zeigt sie im Update-Dialog an.
+**Release erstellen:**
+1. In `client/pom.xml` die `<version>` erhöhen, committen und pushen.
+2. Auf GitHub unter **Releases → Draft a new release** einen neuen Tag `vX.Y.Z` anlegen, z. B. `v1.0.1`, auf Branch `main`.
+   Versionshinweise eintragen, der Client zeigt sie im Update-Dialog an. Dann **Publish release** klicken.
+   Alternativ per Kommandozeile:
+   ```
+   gh release create v1.0.1 --target main --title "1.0.1" --notes "…"
+   ```
+3. Erst das Veröffentlichen startet den Build. Der Workflow baut die Installer mit der Version aus dem Tag, signiert sie und hängt sie nach etwa 10 Minuten an das Release. In dieser Zeit sehen Clients das Release schon, bieten aber noch keine Installation an.
+
+Ein Push auf `main` startet keinen Build mehr. Für einen Test-Build ohne Release: **Actions → Client bauen → Run workflow**. Die Installer liegen dann unter *Artifacts*, unsigniert.
 
 ### Signierte Updates
 Ein Update installiert der Client nur, wenn der Installer mit dem privaten Release-Schlüssel signiert ist. So kann auch jemand mit Zugriff auf das GitHub-Konto kein gefälschtes Update verteilen, solange er den Schlüssel nicht hat.

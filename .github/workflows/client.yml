@@ -1,11 +1,10 @@
 name: Client bauen
 
+# Läuft nur, wenn auf GitHub ein Release veröffentlicht wird (Tag vX.Y.Z).
+# Manuell startbar für Test-Builds (dann nur Artefakte, kein Release-Upload).
 on:
-  push:
-    branches: [main]
-    tags: ['v*']
-  pull_request:
-    paths: ['client/**', '.github/workflows/client.yml']
+  release:
+    types: [published]
   workflow_dispatch:
 
 # Standard: nur lesen. Schreibrecht hat nur der Release-Job (siehe unten).
@@ -42,13 +41,19 @@ jobs:
           java-package: jdk+fx
           cache: maven
 
-      # Bei einem Tag vX.Y.Z bestimmt der Tag die Version (wichtig für das Software-Update im Client),
-      # sonst die Version aus client/pom.xml.
+      # Beim Release bestimmt dessen Tag vX.Y.Z die Version (wichtig für das Software-Update im Client),
+      # beim manuellen Start die Version aus client/pom.xml.
       - name: Version ermitteln
         id: version
+        env:
+          TAG: ${{ github.event.release.tag_name }}
         run: |
-          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
-            V="${GITHUB_REF#refs/tags/v}"
+          if [ "$GITHUB_EVENT_NAME" = "release" ]; then
+            if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+              echo "::error::Release-Tag '$TAG' hat nicht das Format vX.Y.Z (z. B. v1.0.1)."
+              exit 1
+            fi
+            V="${TAG#v}"
             mvn -B -q -f client/pom.xml versions:set -DnewVersion="$V" -DgenerateBackupPoms=false
           else
             V=$(mvn -B -q -f client/pom.xml help:evaluate -Dexpression=project.version -DforceStdout)
@@ -86,11 +91,11 @@ jobs:
           path: dist/*
           if-no-files-found: error
 
-  # Nur bei Tags vX.Y.Z: Installer signieren (Ed25519) und an ein GitHub-Release hängen.
+  # Nur beim Release: Installer signieren (Ed25519) und an das Release hängen.
   # Der Client installiert Updates nur mit gültiger Signatur.
   release:
     needs: package
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: github.event_name == 'release'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -119,6 +124,7 @@ jobs:
           ls -la dist
 
       - name: An Release anhängen
-        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
-        with:
-          files: dist/*
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: gh release upload "$TAG" dist/* --clobber --repo "$GITHUB_REPOSITORY"
