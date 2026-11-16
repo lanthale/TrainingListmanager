@@ -1,94 +1,172 @@
-:root {
-    --bg: #f3f4f6;
-    --card: #ffffff;
-    --text: #1f2937;
-    --muted: #6b7280;
-    --accent: #1d4ed8;
-    --accent-hover: #1e40af;
-    --border: #d1d5db;
-    --error: #b91c1c;
-    --success-bg: #ecfdf5;
-    --success-text: #065f46;
-    --notice-bg: #fef3c7;
-    --notice-text: #78350f;
+/* Design nach www.mind-architects.de: dunkles Blaugrau, Bronze-Akzent, Abel / Afacad Flux */
+
+@font-face {
+    font-family: "Abel";
+    src: url("fonts/abel-latin.woff2") format("woff2");
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+@font-face {
+    font-family: "Afacad Flux";
+    src: url("fonts/afacad-flux-latin.woff2") format("woff2");
+    font-weight: 100 1000;
+    font-style: normal;
+    font-display: swap;
 }
 
-@media (prefers-color-scheme: dark) {
-    :root {
-        --bg: #111827;
-        --card: #1f2937;
-        --text: #f3f4f6;
-        --muted: #9ca3af;
-        --accent: #3b82f6;
-        --accent-hover: #2563eb;
-        --border: #374151;
-        --error: #f87171;
-        --success-bg: #064e3b;
-        --success-text: #d1fae5;
-        --notice-bg: #78350f;
-        --notice-text: #fef3c7;
-    }
+:root {
+    --bg: #383a4f;
+    --panel: #10121f;
+    --panel-line: rgba(255, 255, 255, .12);
+    --text: #ffffff;
+    --muted: #cccccc;
+    --accent: #bb875d;
+    --accent-hover: #cf9c72;
+    --input: #1c1e2e;
+    --error: #ff9b8f;
+    --ok: #9fd8a8;
+    --display: "Afacad Flux", "Abel", system-ui, sans-serif;
+    --body: "Abel", system-ui, -apple-system, "Segoe UI", sans-serif;
 }
 
 * { box-sizing: border-box; }
 
+html { background: var(--bg); }
+
 body {
     margin: 0;
-    padding: 16px;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 2.5rem 1rem 1.5rem;
     background: var(--bg);
     color: var(--text);
-    font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    font-family: var(--body);
+    font-size: 1.125rem;
+    line-height: 1.55;
 }
 
+/* Kopf mit Logo */
+.site-header { margin-bottom: 2rem; text-align: center; }
+.site-header img { display: block; width: 260px; max-width: 70vw; height: auto; }
+
+/* Karte */
 .card {
-    max-width: 480px;
-    margin: 24px auto;
-    padding: 24px;
-    background: var(--card);
-    border-radius: 12px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, .1);
+    width: 100%;
+    max-width: 34rem;
+    background: var(--panel);
+    border-top: 3px solid var(--accent);
+    padding: 2.25rem 2rem 2rem;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, .35);
 }
 
-h1 { font-size: 1.4rem; margin: 0 0 16px; }
-h2 { font-size: 1.15rem; margin: 0 0 4px; }
+.eyebrow {
+    margin: 0 0 .25rem;
+    color: var(--accent);
+    font-family: var(--display);
+    font-size: .85rem;
+    font-weight: 500;
+    letter-spacing: .25em;
+    text-transform: uppercase;
+}
 
+h1, h2 {
+    font-family: var(--display);
+    font-weight: 400;
+    text-transform: uppercase;
+    letter-spacing: .12em;
+    line-height: 1.2;
+}
+h1 { margin: 0 0 1.5rem; font-size: 1.9rem; }
+h2 { margin: 0 0 .5rem; font-size: 1.25rem; color: var(--text); }
+
+p { margin: .25rem 0; }
+
+/* Trainingsdaten */
 .training {
-    padding: 12px 0 16px;
-    margin-bottom: 16px;
-    border-bottom: 1px solid var(--border);
+    margin-bottom: 1.75rem;
+    padding: 1rem 1.25rem;
+    border-left: 2px solid var(--accent);
+    background: rgba(255, 255, 255, .04);
 }
-.training p { margin: 2px 0; color: var(--muted); }
-.training .desc { margin-top: 8px; color: var(--text); }
+.training p { color: var(--muted); }
+.training .desc { margin-top: .75rem; color: var(--text); white-space: pre-line; }
 
-label { display: block; font-weight: 600; margin: 14px 0 4px; }
+/* Formular */
+form { display: grid; gap: .35rem; }
+
+label {
+    margin-top: .75rem;
+    font-family: var(--display);
+    font-size: .85rem;
+    font-weight: 500;
+    letter-spacing: .15em;
+    text-transform: uppercase;
+    color: var(--muted);
+}
 
 input[type="text"] {
     width: 100%;
-    padding: 10px 12px;
-    font-size: 1rem;
+    padding: .7rem .85rem;
+    border: 1px solid var(--panel-line);
+    border-radius: 0;
+    background: var(--input);
     color: var(--text);
-    background: var(--card);
-    border: 1px solid var(--border);
-    border-radius: 8px;
+    font: inherit;
+}
+input[type="text"]:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 2px rgba(187, 135, 93, .35);
 }
 input[aria-invalid="true"] { border-color: var(--error); }
 
-.error { color: var(--error); font-size: .9rem; margin: 4px 0 0; }
+.error { margin: 0; color: var(--error); font-size: .95rem; }
 
 button {
-    width: 100%;
-    margin-top: 24px;
-    padding: 12px;
+    margin-top: 1.5rem;
+    padding: .85rem 1.5rem;
+    border: 0;
+    border-radius: 0;
+    background: var(--accent);
+    color: var(--panel);
+    font-family: var(--display);
     font-size: 1rem;
     font-weight: 600;
-    color: #fff;
-    background: var(--accent);
-    border: 0;
-    border-radius: 8px;
+    letter-spacing: .2em;
+    text-transform: uppercase;
     cursor: pointer;
+    transition: background-color .15s ease;
 }
 button:hover { background: var(--accent-hover); }
+button:focus-visible { outline: 2px solid var(--text); outline-offset: 3px; }
 
-.notice, .success { padding: 12px 14px; border-radius: 8px; }
-.notice { background: var(--notice-bg); color: var(--notice-text); }
-.success { background: var(--success-bg); color: var(--success-text); }
+/* Meldungen */
+.notice, .success {
+    margin: 0 0 1.25rem;
+    padding: .9rem 1.1rem;
+    background: rgba(255, 255, 255, .05);
+    border-left: 3px solid var(--muted);
+}
+.success { border-left-color: var(--ok); }
+
+/* Fuß */
+.site-footer {
+    margin-top: auto;
+    padding-top: 2.5rem;
+    text-align: center;
+    color: var(--muted);
+    font-size: .95rem;
+}
+.site-footer nav { display: flex; gap: .75rem; justify-content: center; }
+.site-footer a { color: var(--muted); text-decoration: none; }
+.site-footer a:hover { color: var(--accent); }
+.site-footer p { margin-top: .4rem; font-size: .85rem; opacity: .8; }
+
+@media (max-width: 480px) {
+    body { padding-top: 1.5rem; }
+    .card { padding: 1.75rem 1.25rem 1.5rem; }
+    h1 { font-size: 1.5rem; }
+}

@@ -14,7 +14,7 @@ header('X-Frame-Options: DENY');
 header('X-Content-Type-Options: nosniff');
 header('Referrer-Policy: no-referrer'); // Token aus der URL nicht weitergeben
 // Nur eigene Ressourcen, kein Inline-Skript, kein Einbetten; Formular darf nur an sich selbst senden
-header("Content-Security-Policy: default-src 'none'; style-src 'self'; img-src 'self'; "
+header("Content-Security-Policy: default-src 'none'; style-src 'self'; img-src 'self'; font-src 'self'; "
     . "form-action 'self'; frame-ancestors 'none'; base-uri 'none'");
 header('Strict-Transport-Security: max-age=31536000');
 header('Permissions-Policy: camera=(), microphone=(), geolocation=()');
@@ -116,12 +116,21 @@ try {
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex, nofollow">
-    <title>Training-Registrierung</title>
+    <meta name="theme-color" content="#383a4f">
+    <title>Training-Registrierung · MINDArchitects</title>
     <link rel="stylesheet" href="style.css">
+    <link rel="icon" type="image/png" href="img/icon.png">
 </head>
 <body>
+<header class="site-header">
+    <a href="https://www.mind-architects.de/" class="brand" rel="noopener">
+        <img src="img/logo.png" alt="MINDArchitects" width="260" height="116">
+    </a>
+</header>
+
 <main class="card">
-    <h1>Training-Registrierung</h1>
+    <p class="eyebrow">Training</p>
+    <h1>Registrierung</h1>
 
 <?php if ($view === 'message'): ?>
     <p class="notice"><?= h($message) ?></p>
@@ -160,5 +169,14 @@ try {
     </form>
 <?php endif; ?>
 </main>
+
+<footer class="site-footer">
+    <nav>
+        <a href="https://www.mind-architects.de/index.php/de/impressum.html" rel="noopener">Impressum</a>
+        <span aria-hidden="true">|</span>
+        <a href="https://www.mind-architects.de/index.php/de/datenschutz.html" rel="noopener">Datenschutz</a>
+    </nav>
+    <p>© MINDArchitects <?= date('Y') ?></p>
+</footer>
 </body>
 </html>

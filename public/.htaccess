@@ -9,6 +9,6 @@ DirectoryIndex index.php
 </IfModule>
 
 # Nur die Seite und das Stylesheet ausliefern
-<FilesMatch "^(?!(index\.php|api\.php|style\.css)$).+">
+<FilesMatch "^(?!(index\.php|api\.php|style\.css|abel-latin\.woff2|afacad-flux-latin\.woff2|logo\.png|icon\.png)$).+">
     Require all denied
 </FilesMatch>
