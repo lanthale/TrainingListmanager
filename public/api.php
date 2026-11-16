@@ -113,7 +113,8 @@ try {
             require_method('POST');
             $in = json_body();
             $trainingId = input_int($in, 'training_id');
-            find_training($trainingId);
+            $training = find_training($trainingId);
+            $expiresAt = invitation_expiry($training['starts_at']);
             $emails = $in['emails'] ?? null;
             if (!is_array($emails) || !$emails) {
                 throw new ApiError("Feld 'emails' fehlt");
@@ -127,7 +128,7 @@ try {
             $known = array_fill_keys($existing->fetchAll(PDO::FETCH_COLUMN), true);
 
             $insert = $pdo->prepare(
-                'INSERT INTO invitations (training_id, email, token_hash) VALUES (?, ?, ?)'
+                'INSERT INTO invitations (training_id, email, token_hash, expires_at) VALUES (?, ?, ?, ?)'
             );
             $created = [];
             $skipped = [];
@@ -144,7 +145,7 @@ try {
                     continue;
                 }
                 $token = create_invitation_token();
-                $insert->execute([$trainingId, $email, token_hash($token)]);
+                $insert->execute([$trainingId, $email, token_hash($token), $expiresAt]);
                 $known[$lower] = true;
                 $created[] = [
                     'id'    => (int)$pdo->lastInsertId(),
@@ -159,7 +160,10 @@ try {
             require_method('POST');
             $in = json_body();
             $id = input_int($in, 'id');
-            $stmt = $pdo->prepare('SELECT id, email, used_at FROM invitations WHERE id = ?');
+            $stmt = $pdo->prepare(
+                'SELECT i.id, i.email, i.used_at, t.starts_at
+                   FROM invitations i JOIN trainings t ON t.id = i.training_id WHERE i.id = ?'
+            );
             $stmt->execute([$id]);
             $inv = $stmt->fetch();
             if (!$inv) {
@@ -169,8 +173,9 @@ try {
                 throw new ApiError('Einladung wurde bereits verwendet', 409);
             }
             $token = create_invitation_token();
-            $pdo->prepare('UPDATE invitations SET token_hash = ?, sent_at = NULL WHERE id = ? AND used_at IS NULL')
-                ->execute([token_hash($token), $id]);
+            $pdo->prepare(
+                'UPDATE invitations SET token_hash = ?, sent_at = NULL, expires_at = ? WHERE id = ? AND used_at IS NULL'
+            )->execute([token_hash($token), invitation_expiry($inv['starts_at']), $id]);
             json_out(['id' => (int)$inv['id'], 'email' => $inv['email'], 'url' => invitation_url($token)]);
 
         case 'mark_sent':

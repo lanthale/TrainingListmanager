@@ -2,6 +2,7 @@ package de.mindarchitects.tlm.mail;
 
 import de.mindarchitects.tlm.settings.Settings;
 import de.mindarchitects.tlm.settings.Settings.SmtpSecurity;
+import jakarta.mail.AuthenticationFailedException;
 import jakarta.mail.Message;
 import jakarta.mail.MessagingException;
 import jakarta.mail.Session;
@@ -51,11 +52,39 @@ public final class Mailer implements AutoCloseable {
             throw new MessagingException("Absender ungültig", e);
         }
         transport = session.getTransport("smtp");
-        if (s.smtpUser().isBlank()) {
-            transport.connect();
-        } else {
-            transport.connect(s.smtpHost(), s.smtpPort(), s.smtpUser(), password);
+        String where = s.smtpHost() + ":" + s.smtpPort() + " (" + s.smtpSecurity() + ")";
+        try {
+            if (s.smtpUser().isBlank()) {
+                transport.connect();
+            } else {
+                if (password == null || password.isEmpty()) {
+                    throw new MessagingException("Kein SMTP-Passwort eingetragen (Einstellungen).");
+                }
+                transport.connect(s.smtpHost(), s.smtpPort(), s.smtpUser(), password);
+            }
+        } catch (AuthenticationFailedException e) {
+            throw new MessagingException("Anmeldung am Mailserver abgelehnt – Benutzer oder Passwort ist falsch.\n"
+                    + "Benutzer: " + s.smtpUser() + "\nServer: " + where
+                    + "\nAntwort des Servers: " + nz(e.getMessage()), e);
+        } catch (MessagingException e) {
+            if (e.getMessage() != null && e.getMessage().startsWith("Kein SMTP-Passwort")) {
+                throw e;
+            }
+            throw new MessagingException("Verbindung zum Mailserver " + where + " fehlgeschlagen: "
+                    + rootMessage(e) + "\nPort und Sicherheit prüfen (465 = SSL, 587 = STARTTLS).", e);
         }
+    }
+
+    private static String nz(String s) {
+        return s == null ? "" : s.strip();
+    }
+
+    private static String rootMessage(Throwable t) {
+        Throwable r = t;
+        while (r.getCause() != null && r.getCause() != r) {
+            r = r.getCause();
+        }
+        return r.getClass().getSimpleName() + (r.getMessage() != null ? ": " + r.getMessage() : "");
     }
 
     public InternetAddress from() {

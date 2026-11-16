@@ -28,6 +28,23 @@ function create_invitation_token(): string
     return bin2hex(random_bytes(32));
 }
 
+/** Gültigkeit einer Einladung ohne Trainingsdatum (Tage ab Erstellung). */
+const INVITATION_DAYS_WITHOUT_DATE = 90;
+
+/**
+ * Ablaufzeitpunkt einer Einladung: Ende des Tages nach Trainingsbeginn
+ * (also Beginn-Datum + 2 Tage, 00:00). Ohne Trainingsdatum: 90 Tage ab jetzt.
+ */
+function invitation_expiry(?string $startsAt): string
+{
+    if ($startsAt !== null && $startsAt !== '') {
+        $start = new DateTime($startsAt);
+        $start->setTime(0, 0, 0)->modify('+2 days');
+        return $start->format('Y-m-d H:i:s');
+    }
+    return (new DateTime())->modify('+' . INVITATION_DAYS_WITHOUT_DATE . ' days')->format('Y-m-d H:i:s');
+}
+
 /** Registrierungs-URL für einen Klartext-Token. */
 function invitation_url(string $token): string
 {

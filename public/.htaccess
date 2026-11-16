@@ -2,6 +2,12 @@ Require all granted
 Options -Indexes
 DirectoryIndex index.php
 
+# Browser sollen die Seite ein Jahr lang nur noch per HTTPS aufrufen (auch für style.css)
+<IfModule mod_headers.c>
+    Header always set Strict-Transport-Security "max-age=31536000"
+    Header always set X-Content-Type-Options "nosniff"
+</IfModule>
+
 # Nur die Seite und das Stylesheet ausliefern
 <FilesMatch "^(?!(index\.php|api\.php|style\.css)$).+">
     Require all denied

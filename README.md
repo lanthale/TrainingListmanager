@@ -22,7 +22,9 @@ client/                      JavaFX-Desktop-Client (Maven)
 ## Server einrichten (IONOS-Webspace)
 
 1. **Schema einspielen:** `sql/schema.sql` in phpMyAdmin in der Datenbank `dbs16347872` ausführen.
-   Wurde das Schema schon früher eingespielt, stattdessen `sql/migrations/002_invitations_sent_at.sql` ausführen.
+   Wurde das Schema schon früher eingespielt, stattdessen die noch fehlenden Migrationen aus `sql/migrations/` der Reihe nach ausführen:
+   - `002_invitations_sent_at.sql`
+   - `003_invitation_expiry.sql`
 2. **Dateien hochladen:** den Projektordner ohne `client/` hochladen, auch die `.htaccess`-Dateien.
    Im FTP-Programm dafür versteckte Dateien einblenden.
 3. **Webroot:** In der IONOS-Domainverwaltung zeigt `trainings.mind-architects.de` auf den Unterordner `public`.
@@ -52,11 +54,32 @@ Die Pakete sind nicht signiert:
 - **macOS:** Beim ersten Start mit Rechtsklick → *Öffnen* bestätigen, oder unter *Systemeinstellungen → Datenschutz & Sicherheit* „Trotzdem öffnen“ wählen.
 - **Windows:** Bei der SmartScreen-Warnung *Weitere Informationen → Trotzdem ausführen* wählen.
 
-**Release erstellen:** In `client/pom.xml` die `<version>` erhöhen, committen und einen Tag `vX.Y.Z` pushen, zum Beispiel `git tag v1.0.1 && git push origin v1.0.1`. Der Workflow baut die Installer mit der Version aus dem Tag und hängt sie an ein GitHub-Release. Die Versionshinweise trägt man danach auf GitHub im Release ein. Der Client zeigt sie im Update-Dialog an.
+**Release erstellen:** In `client/pom.xml` die `<version>` erhöhen, committen und einen Tag `vX.Y.Z` pushen, zum Beispiel `git tag v1.0.1 && git push origin v1.0.1`. Der Workflow baut die Installer mit der Version aus dem Tag, signiert sie und hängt sie an ein GitHub-Release. Die Versionshinweise trägt man danach auf GitHub im Release ein. Der Client zeigt sie im Update-Dialog an.
+
+### Signierte Updates
+Ein Update installiert der Client nur, wenn der Installer mit dem privaten Release-Schlüssel signiert ist. So kann auch jemand mit Zugriff auf das GitHub-Konto kein gefälschtes Update verteilen, solange er den Schlüssel nicht hat.
+
+- **Privater Schlüssel:** liegt lokal in `~/.traininglistmanager/update-signing-key.txt` und zusätzlich als GitHub-Secret `UPDATE_SIGNING_KEY`. Er gehört **nie** ins Repository. Bewahren Sie eine Sicherungskopie sicher auf, z. B. im Passwort-Manager.
+- **Öffentlicher Schlüssel:** steht fest im Client, in `UpdateService.PUBLIC_KEY`.
+- **Secret einmalig setzen:**
+  ```
+  gh secret set UPDATE_SIGNING_KEY < ~/.traininglistmanager/update-signing-key.txt
+  ```
+  Alternativ auf GitHub unter *Settings → Secrets and variables → Actions*. Fehlt das Secret, bricht der Release-Job ab, statt ein unsigniertes Release zu veröffentlichen.
+- **Neues Schlüsselpaar erzeugen:**
+  ```
+  java client/packaging/SignRelease.java keygen <datei>
+  ```
+  Den ausgegebenen öffentlichen Schlüssel in `UpdateService.PUBLIC_KEY` eintragen und das Secret ersetzen.
+  Achtung: Bereits installierte Clients akzeptieren danach nur noch Updates mit dem alten Schlüssel. Die neue Version muss man deshalb einmal von Hand installieren.
 
 ### Software-Update
 Der Client fragt beim Start im Hintergrund das neueste Release auf GitHub ab (`lanthale/TrainingListmanager`). Ist es neuer als die installierte Version, erscheint ein Dialog mit den Versionshinweisen und drei Möglichkeiten:
-- **Herunterladen & installieren:** lädt den passenden Installer (.dmg, .msi oder .deb) und prüft ihn mit der SHA-256-Prüfsumme von GitHub. Danach wird der Installer gestartet und der Client beendet:
+- **Herunterladen & installieren:** lädt den passenden Installer (.dmg, .msi oder .deb) und prüft ihn zweifach:
+  - mit der SHA-256-Prüfsumme von GitHub
+  - mit der eigenen Ed25519-Signatur (siehe „Signierte Updates“)
+
+  Ist das Release nicht signiert oder passt die Signatur nicht, installiert der Client nichts. Bei gültiger Prüfung wird der Installer gestartet und der Client beendet:
   - Windows: Das MSI aktualisiert die vorhandene Installation.
   - macOS: Das Disk-Image wird geöffnet. Die App in „Programme“ ziehen und „Ersetzen“ bestätigen.
   - Linux: Das Paket öffnet sich in der Softwareverwaltung.
@@ -124,4 +147,10 @@ Die Tokens erzeugt der Server. In der Datenbank liegt nur ihr SHA-256-Hash. Den 
 - Eine Registrierung ist nur mit gültigem, unbenutztem und nicht abgelaufenem Token möglich, und das Training muss aktiv sein.
 - Die Registrierung läuft in einer Transaktion mit `SELECT … FOR UPDATE`. Zusätzlich verhindert ein `UNIQUE`-Index auf `registrations.invitation_id` Doppel-Einträge.
 - Die Seite nutzt CSRF-Schutz, Prepared Statements und HTML-Escaping. DB-Fehler gehen ins Server-Log und werden nicht angezeigt.
-- Die API ist gesperrt, solange in `config.php` kein `api_key_hash` steht. Der Schlüssel hat 256 Bit. Ein neu erzeugter Schlüssel macht den alten ungültig, sobald sein Hash in `config.php` steht.
+- **Ablauf von Einladungen:** Einladungen laufen automatisch am Ende des Tages nach Trainingsbeginn ab, ohne Trainingsdatum nach 90 Tagen. Beim erneuten Senden wird das Ablaufdatum neu gesetzt. Der Client zeigt es in der Spalte „Gültig bis“.
+- **Server-Header:** Die Seite sendet HSTS, eine strikte Content-Security-Policy (nur eigene Ressourcen, kein Einbetten), `nosniff` und `Referrer-Policy: no-referrer`.
+- **API-Schlüssel:** Die API ist gesperrt, solange in `config.php` kein `api_key_hash` steht. Der Schlüssel hat 256 Bit. Ein neu erzeugter Schlüssel macht den alten ungültig, sobald sein Hash in `config.php` steht.
+  **Geht ein Rechner mit dem Client verloren:** sofort einen neuen Schlüssel erzeugen und den Hash in `config.php` ersetzen.
+- **HTTPS-Pflicht im Client:** Der Client lehnt API-URLs ohne `https://` ab, damit der Schlüssel nie unverschlüsselt übertragen wird.
+- **Build:** Die GitHub Actions sind auf feste Commits festgelegt. Nur der Release-Job hat Schreibrechte und Zugriff auf den Signaturschlüssel.
+- **Konto:** Für das GitHub-Konto sollte die Zwei-Faktor-Anmeldung aktiv sein.

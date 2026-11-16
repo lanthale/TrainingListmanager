@@ -44,6 +44,23 @@ public class ApiClient {
         }
         this.baseUrl = baseUrl.trim();
         this.apiKey = apiKey.trim();
+        requireHttps(this.baseUrl);
+    }
+
+    /** Der API-Schlüssel darf nie unverschlüsselt übertragen werden (Ausnahme: lokaler Test). */
+    private static void requireHttps(String url) {
+        URI uri;
+        try {
+            uri = URI.create(url);
+        } catch (IllegalArgumentException e) {
+            throw new ApiException("API-URL ist ungültig: " + url);
+        }
+        String host = uri.getHost() == null ? "" : uri.getHost();
+        boolean local = host.equals("localhost") || host.equals("127.0.0.1") || host.equals("[::1]") || host.equals("::1");
+        if (!"https".equalsIgnoreCase(uri.getScheme()) && !local) {
+            throw new ApiException("Die API-URL muss mit https:// beginnen, sonst würde der API-Schlüssel "
+                    + "unverschlüsselt übertragen.");
+        }
     }
 
     public void ping() {

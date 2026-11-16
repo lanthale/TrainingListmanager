@@ -56,20 +56,28 @@ public final class UpdateDialog {
 
         TextArea notes = Fx.textArea(r.notes().isBlank() ? "Keine Versionshinweise." : r.notes(), 10);
         notes.setEditable(false);
-        String info = r.asset() == null
-                ? "Für dieses System gibt es keinen Installer. Das Release kann auf GitHub geöffnet werden."
-                : "Installer: " + r.asset().name() + " (" + mb(r.asset().size()) + ")";
-        a.getDialogPane().setContent(new VBox(8, new Label("Änderungen:"), notes, new Label(info)));
+        boolean installable = r.asset() != null && r.asset().signed();
+        String info;
+        if (r.asset() == null) {
+            info = "Für dieses System gibt es keinen Installer. Das Release kann auf GitHub geöffnet werden.";
+        } else if (!r.asset().signed()) {
+            info = "Dieses Release ist nicht signiert und wird deshalb nicht automatisch installiert.";
+        } else {
+            info = "Installer: " + r.asset().name() + " (" + mb(r.asset().size()) + "), signiert";
+        }
+        Label infoLabel = new Label(info);
+        infoLabel.setWrapText(true);
+        a.getDialogPane().setContent(new VBox(8, new Label("Änderungen:"), notes, infoLabel));
         a.getDialogPane().setPrefWidth(560);
         a.setResizable(true);
 
-        ButtonType install = new ButtonType(r.asset() == null ? "Auf GitHub öffnen" : "Herunterladen & installieren",
+        ButtonType install = new ButtonType(installable ? "Herunterladen & installieren" : "Auf GitHub öffnen",
                 ButtonBar.ButtonData.OK_DONE);
         ButtonType skip = new ButtonType("Diese Version überspringen", ButtonBar.ButtonData.LEFT);
         ButtonType later = new ButtonType("Später", ButtonBar.ButtonData.CANCEL_CLOSE);
         a.getButtonTypes().setAll(skip, later, install);
         Fx.decorate(a.getDialogPane().lookupButton(install),
-                r.asset() == null ? MaterialDesignO.OPEN_IN_NEW : MaterialDesignD.DOWNLOAD);
+                installable ? MaterialDesignD.DOWNLOAD : MaterialDesignO.OPEN_IN_NEW);
         Fx.decorate(a.getDialogPane().lookupButton(skip), MaterialDesignS.SKIP_NEXT);
         Fx.decorate(a.getDialogPane().lookupButton(later), MaterialDesignC.CLOCK_OUTLINE);
 
@@ -78,7 +86,7 @@ public final class UpdateDialog {
             settings.skippedVersion(r.version());
             settings.flush();
         } else if (choice == install) {
-            if (r.asset() == null) {
+            if (!installable) {
                 host.showDocument(r.pageUrl());
             } else {
                 downloadAndInstall(owner, service, r);
@@ -91,7 +99,7 @@ public final class UpdateDialog {
         ProgressDialog.run(owner, "Update " + r.version() + " herunterladen", p -> {
             p.log("Lade " + r.asset().name() + " …");
             result[0] = service.download(r.asset(), p::progress, p::isCancelled);
-            p.log(r.asset().sha256() != null ? "Prüfsumme in Ordnung." : "Heruntergeladen.");
+            p.log("Prüfsumme und Signatur in Ordnung.");
             p.log("Gespeichert: " + result[0]);
         }, () -> {
             if (result[0] != null) {

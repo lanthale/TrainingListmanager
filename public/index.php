@@ -13,6 +13,11 @@ session_start();
 header('X-Frame-Options: DENY');
 header('X-Content-Type-Options: nosniff');
 header('Referrer-Policy: no-referrer'); // Token aus der URL nicht weitergeben
+// Nur eigene Ressourcen, kein Inline-Skript, kein Einbetten; Formular darf nur an sich selbst senden
+header("Content-Security-Policy: default-src 'none'; style-src 'self'; img-src 'self'; "
+    . "form-action 'self'; frame-ancestors 'none'; base-uri 'none'");
+header('Strict-Transport-Security: max-age=31536000');
+header('Permissions-Policy: camera=(), microphone=(), geolocation=()');
 
 function h(?string $s): string
 {

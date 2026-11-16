@@ -12,7 +12,13 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.security.GeneralSecurityException;
+import java.security.KeyFactory;
 import java.security.MessageDigest;
+import java.security.PublicKey;
+import java.security.Signature;
+import java.security.spec.X509EncodedKeySpec;
+import java.util.Base64;
 import java.time.Duration;
 import java.util.HexFormat;
 import java.util.Locale;
@@ -31,7 +37,19 @@ public final class UpdateService {
 
     public enum Os { MAC, WINDOWS, LINUX, OTHER }
 
-    public record Asset(String name, long size, String url, String sha256) {}
+    /**
+     * Öffentlicher Ed25519-Schlüssel für die Update-Signaturen (X.509, Base64).
+     * Der private Schlüssel liegt nur als GitHub-Secret UPDATE_SIGNING_KEY vor
+     * (siehe client/packaging/SignRelease.java).
+     */
+    static final String PUBLIC_KEY = "MCowBQYDK2VwAyEAer0T0PlKCAO7DQUyNX9IcQ4VBuoh8qlfs4qo1ifnGZI=";
+
+    /** signatureUrl ist null, wenn das Release keine Signatur (.sig) für den Installer enthält. */
+    public record Asset(String name, long size, String url, String sha256, String signatureUrl) {
+        public boolean signed() {
+            return signatureUrl != null;
+        }
+    }
 
     /** asset ist null, wenn es für dieses System keinen passenden Installer gibt. */
     public record Release(String version, String tag, String name, String notes, String pageUrl, Asset asset) {}
@@ -105,15 +123,29 @@ public final class UpdateService {
             if (name.toLowerCase(Locale.ROOT).endsWith(ext)) {
                 String digest = a.path("digest").asText("");
                 String sha = digest.startsWith("sha256:") ? digest.substring(7) : null;
-                return Optional.of(new Asset(name, a.path("size").asLong(), a.path("browser_download_url").asText(), sha));
+                String sigUrl = null;
+                for (JsonNode s : assets) {
+                    if (s.path("name").asText().equals(name + ".sig")) {
+                        sigUrl = s.path("browser_download_url").asText();
+                    }
+                }
+                return Optional.of(new Asset(name, a.path("size").asLong(),
+                        a.path("browser_download_url").asText(), sha, sigUrl));
             }
         }
         return Optional.empty();
     }
 
-    /** Lädt den Installer in ein temporäres Verzeichnis und prüft die SHA-256-Prüfsumme. */
+    /**
+     * Lädt den Installer in ein temporäres Verzeichnis, prüft die SHA-256-Prüfsumme und die
+     * Ed25519-Signatur. Ohne gültige Signatur wird die Datei gelöscht und nichts installiert.
+     */
     public Path download(Asset asset, DownloadProgress progress, BooleanSupplier cancelled)
             throws IOException, InterruptedException {
+        if (!asset.signed()) {
+            throw new IOException("Dieses Update ist nicht signiert und wird aus Sicherheitsgründen nicht installiert.");
+        }
+        byte[] signature = fetchSignature(asset.signatureUrl());
         HttpRequest req = HttpRequest.newBuilder(URI.create(asset.url()))
                 .timeout(Duration.ofMinutes(15))
                 .header("User-Agent", USER_AGENT)
@@ -157,7 +189,48 @@ public final class UpdateService {
                 throw new IOException("Prüfsumme stimmt nicht – Download verworfen.");
             }
         }
+        if (!verifySignature(target, signature)) {
+            Files.deleteIfExists(target);
+            throw new IOException("Signatur ungültig – Download verworfen. Das Update stammt nicht vom Herausgeber.");
+        }
         return target;
+    }
+
+    private byte[] fetchSignature(String url) throws IOException, InterruptedException {
+        HttpRequest req = HttpRequest.newBuilder(URI.create(url))
+                .timeout(Duration.ofSeconds(30))
+                .header("User-Agent", USER_AGENT)
+                .header("Accept", "application/octet-stream")
+                .GET().build();
+        HttpResponse<String> res = http.send(req, HttpResponse.BodyHandlers.ofString());
+        if (res.statusCode() != 200) {
+            throw new IOException("Signatur konnte nicht geladen werden (HTTP " + res.statusCode() + ")");
+        }
+        try {
+            return Base64.getDecoder().decode(res.body().strip());
+        } catch (IllegalArgumentException e) {
+            throw new IOException("Signaturdatei ist beschädigt.");
+        }
+    }
+
+    /** Prüft die Ed25519-Signatur einer Datei gegen den eingebauten öffentlichen Schlüssel. */
+    static boolean verifySignature(Path file, byte[] signature) throws IOException {
+        try {
+            PublicKey key = KeyFactory.getInstance("Ed25519")
+                    .generatePublic(new X509EncodedKeySpec(Base64.getDecoder().decode(PUBLIC_KEY)));
+            Signature s = Signature.getInstance("Ed25519");
+            s.initVerify(key);
+            try (InputStream in = Files.newInputStream(file)) {
+                byte[] buf = new byte[64 * 1024];
+                int n;
+                while ((n = in.read(buf)) > 0) {
+                    s.update(buf, 0, n);
+                }
+            }
+            return s.verify(signature);
+        } catch (GeneralSecurityException e) {
+            return false;
+        }
     }
 
     /**

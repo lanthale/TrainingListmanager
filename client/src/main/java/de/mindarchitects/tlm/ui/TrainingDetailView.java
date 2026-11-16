@@ -61,7 +61,8 @@ public final class TrainingDetailView extends VBox {
         invitations.getColumns().addAll(List.of(
                 col("E-Mail", Invitation::email, 260),
                 col("Gesendet", i -> Fmt.dateTime(i.sentAt()), 130),
-                col("Registriert", i -> Fmt.dateTime(i.usedAt()), 130)));
+                col("Registriert", i -> Fmt.dateTime(i.usedAt()), 130),
+                col("Gültig bis", i -> i.usedAt() != null ? "" : expiry(i.expiresAt()), 150)));
         invitations.setPlaceholder(new Label("Keine Einladungen"));
         invitations.getSelectionModel().setSelectionMode(SelectionMode.MULTIPLE);
         invitations.setColumnResizePolicy(TableView.CONSTRAINED_RESIZE_POLICY_FLEX_LAST_COLUMN);
@@ -136,6 +137,15 @@ public final class TrainingDetailView extends VBox {
         } finally {
             updating = false;
         }
+    }
+
+    /** Ablaufdatum mit Hinweis, wenn die Einladung schon abgelaufen ist. */
+    private static String expiry(String sqlDate) {
+        var dt = Fmt.parse(sqlDate);
+        if (dt == null) {
+            return "unbegrenzt";
+        }
+        return Fmt.dateTime(dt) + (dt.isBefore(java.time.LocalDateTime.now()) ? " (abgelaufen)" : "");
     }
 
     private static <S> TableColumn<S, String> col(String name, Function<S, String> getter, double width) {
