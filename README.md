@@ -62,34 +62,13 @@ Die Pakete sind nicht signiert:
    ```
    gh release create v1.0.1 --target main --title "1.0.1" --notes "…"
    ```
-3. Erst das Veröffentlichen startet den Build. Der Workflow baut die Installer mit der Version aus dem Tag, signiert sie und hängt sie nach etwa 10 Minuten an das Release. In dieser Zeit sehen Clients das Release schon, bieten aber noch keine Installation an.
+3. Erst das Veröffentlichen startet den Build. Der Workflow baut die Installer mit der Version aus dem Tag und hängt sie nach etwa 10 Minuten an das Release. In dieser Zeit sehen Clients das Release schon, bieten aber noch keine Installation an.
 
-Ein Push auf `main` startet keinen Build mehr. Für einen Test-Build ohne Release: **Actions → Client bauen → Run workflow**. Die Installer liegen dann unter *Artifacts*, unsigniert.
-
-### Signierte Updates
-Ein Update installiert der Client nur, wenn der Installer mit dem privaten Release-Schlüssel signiert ist. So kann auch jemand mit Zugriff auf das GitHub-Konto kein gefälschtes Update verteilen, solange er den Schlüssel nicht hat.
-
-- **Privater Schlüssel:** liegt lokal in `~/.traininglistmanager/update-signing-key.txt` und zusätzlich als GitHub-Secret `UPDATE_SIGNING_KEY`. Er gehört **nie** ins Repository. Bewahren Sie eine Sicherungskopie sicher auf, z. B. im Passwort-Manager.
-- **Öffentlicher Schlüssel:** steht fest im Client, in `UpdateService.PUBLIC_KEY`.
-- **Secret einmalig setzen:**
-  ```
-  gh secret set UPDATE_SIGNING_KEY < ~/.traininglistmanager/update-signing-key.txt
-  ```
-  Alternativ auf GitHub unter *Settings → Secrets and variables → Actions*. Fehlt das Secret, bricht der Release-Job ab, statt ein unsigniertes Release zu veröffentlichen.
-- **Neues Schlüsselpaar erzeugen:**
-  ```
-  java client/packaging/SignRelease.java keygen <datei>
-  ```
-  Den ausgegebenen öffentlichen Schlüssel in `UpdateService.PUBLIC_KEY` eintragen und das Secret ersetzen.
-  Achtung: Bereits installierte Clients akzeptieren danach nur noch Updates mit dem alten Schlüssel. Die neue Version muss man deshalb einmal von Hand installieren.
+Ein Push auf `main` startet keinen Build mehr. Für einen Test-Build ohne Release: **Actions → Client bauen → Run workflow**. Die Installer liegen dann unter *Artifacts*.
 
 ### Software-Update
 Der Client fragt beim Start im Hintergrund das neueste Release auf GitHub ab (`lanthale/TrainingListmanager`). Ist es neuer als die installierte Version, erscheint ein Dialog mit den Versionshinweisen und drei Möglichkeiten:
-- **Herunterladen & installieren:** lädt den passenden Installer (.dmg, .msi oder .deb) und prüft ihn zweifach:
-  - mit der SHA-256-Prüfsumme von GitHub
-  - mit der eigenen Ed25519-Signatur (siehe „Signierte Updates“)
-
-  Ist das Release nicht signiert oder passt die Signatur nicht, installiert der Client nichts. Bei gültiger Prüfung wird der Installer gestartet und der Client beendet:
+- **Herunterladen & installieren:** lädt den passenden Installer (.dmg, .msi oder .deb) über HTTPS und prüft ihn mit der SHA-256-Prüfsumme von GitHub. Passt sie nicht, installiert der Client nichts. Sonst wird der Installer gestartet und der Client beendet:
   - Windows: Das MSI aktualisiert die vorhandene Installation.
   - macOS: Das Disk-Image wird geöffnet. Die App in „Programme“ ziehen und „Ersetzen“ bestätigen.
   - Linux: Das Paket öffnet sich in der Softwareverwaltung.
@@ -162,5 +141,5 @@ Die Tokens erzeugt der Server. In der Datenbank liegt nur ihr SHA-256-Hash. Den 
 - **API-Schlüssel:** Die API ist gesperrt, solange in `config.php` kein `api_key_hash` steht. Der Schlüssel hat 256 Bit. Ein neu erzeugter Schlüssel macht den alten ungültig, sobald sein Hash in `config.php` steht.
   **Geht ein Rechner mit dem Client verloren:** sofort einen neuen Schlüssel erzeugen und den Hash in `config.php` ersetzen.
 - **HTTPS-Pflicht im Client:** Der Client lehnt API-URLs ohne `https://` ab, damit der Schlüssel nie unverschlüsselt übertragen wird.
-- **Build:** Die GitHub Actions sind auf feste Commits festgelegt. Nur der Release-Job hat Schreibrechte und Zugriff auf den Signaturschlüssel.
-- **Konto:** Für das GitHub-Konto sollte die Zwei-Faktor-Anmeldung aktiv sein.
+- **Build:** Die GitHub Actions sind auf feste Commits festgelegt. Nur der Release-Job hat Schreibrechte.
+- **Konto:** Wer das GitHub-Konto kontrolliert, kann Updates an alle Clients verteilen. Für das Konto deshalb unbedingt die Zwei-Faktor-Anmeldung aktivieren.

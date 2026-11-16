@@ -56,15 +56,10 @@ public final class UpdateDialog {
 
         TextArea notes = Fx.textArea(r.notes().isBlank() ? "Keine Versionshinweise." : r.notes(), 10);
         notes.setEditable(false);
-        boolean installable = r.asset() != null && r.asset().signed();
-        String info;
-        if (r.asset() == null) {
-            info = "Für dieses System gibt es keinen Installer. Das Release kann auf GitHub geöffnet werden.";
-        } else if (!r.asset().signed()) {
-            info = "Dieses Release ist nicht signiert und wird deshalb nicht automatisch installiert.";
-        } else {
-            info = "Installer: " + r.asset().name() + " (" + mb(r.asset().size()) + "), signiert";
-        }
+        boolean installable = r.asset() != null;
+        String info = installable
+                ? "Installer: " + r.asset().name() + " (" + mb(r.asset().size()) + ")"
+                : "Für dieses System gibt es keinen Installer. Das Release kann auf GitHub geöffnet werden.";
         Label infoLabel = new Label(info);
         infoLabel.setWrapText(true);
         a.getDialogPane().setContent(new VBox(8, new Label("Änderungen:"), notes, infoLabel));
@@ -99,7 +94,7 @@ public final class UpdateDialog {
         ProgressDialog.run(owner, "Update " + r.version() + " herunterladen", p -> {
             p.log("Lade " + r.asset().name() + " …");
             result[0] = service.download(r.asset(), p::progress, p::isCancelled);
-            p.log("Prüfsumme und Signatur in Ordnung.");
+            p.log("Prüfsumme in Ordnung.");
             p.log("Gespeichert: " + result[0]);
         }, () -> {
             if (result[0] != null) {
