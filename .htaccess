@@ -1,0 +1,3 @@
+# Schutz, falls der Projektordner selbst als Webroot dient:
+# alles sperren außer dem Ordner public/ (der hat eine eigene .htaccess).
+Require all denied

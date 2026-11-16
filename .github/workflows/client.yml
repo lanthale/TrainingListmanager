@@ -1,0 +1,82 @@
+name: Client bauen
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    paths: ['client/**', '.github/workflows/client.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: write   # für das Anhängen an Releases bei Tags
+
+jobs:
+  package:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            type: dmg
+            extra: --mac-package-name TrainingListmanager
+          - os: windows-latest
+            type: msi
+            extra: --win-menu --win-shortcut --win-dir-chooser --win-menu-group TrainingListmanager --win-upgrade-uuid 6c3b2a3e-8f43-4d9a-9a8e-3f2f6a1c7d41
+          - os: ubuntu-latest
+            type: deb
+            extra: --linux-shortcut --linux-menu-group Office --linux-package-name traininglistmanager
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      # JDK 27 mit eingebautem JavaFX 27 – jpackage übernimmt die JavaFX-Module direkt in die Laufzeit
+      - uses: actions/setup-java@v4
+        with:
+          distribution: zulu
+          java-version: '27'
+          java-package: jdk+fx
+          cache: maven
+
+      - name: Maven-Build
+        run: mvn -B -f client/pom.xml package
+
+      - name: Version ermitteln
+        id: version
+        run: |
+          V=$(mvn -B -q -f client/pom.xml help:evaluate -Dexpression=project.version -DforceStdout)
+          echo "version=${V%-SNAPSHOT}" >> "$GITHUB_OUTPUT"
+
+      - name: Installer erzeugen (jpackage)
+        run: |
+          mkdir -p dist
+          jpackage \
+            --type ${{ matrix.type }} \
+            --name TrainingListmanager \
+            --app-version ${{ steps.version.outputs.version }} \
+            --vendor "mind-architects" \
+            --description "Trainings verwalten und Einladungen versenden" \
+            --input client/target/libs \
+            --main-jar training-listmanager.jar \
+            --main-class de.mindarchitects.tlm.Launcher \
+            --add-modules java.base,java.desktop,java.logging,java.naming,java.net.http,java.prefs,java.security.sasl,java.sql,java.xml,jdk.net,jdk.security.auth,jdk.unsupported,jdk.localedata,jdk.charsets,javafx.base,javafx.graphics,javafx.controls \
+            --jlink-options "--strip-debug --no-man-pages --no-header-files" \
+            --java-options "-Dfile.encoding=UTF-8 --enable-native-access=ALL-UNNAMED,javafx.graphics" \
+            --dest dist \
+            ${{ matrix.extra }}
+          ls -la dist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TrainingListmanager-${{ matrix.type }}
+          path: dist/*
+          if-no-files-found: error
+
+      - name: An Release anhängen
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*

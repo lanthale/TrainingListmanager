@@ -1,0 +1,8 @@
+Require all granted
+Options -Indexes
+DirectoryIndex index.php
+
+# Nur die Seite und das Stylesheet ausliefern
+<FilesMatch "^(?!(index\.php|api\.php|style\.css)$).+">
+    Require all denied
+</FilesMatch>

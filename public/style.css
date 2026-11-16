@@ -1,0 +1,94 @@
+:root {
+    --bg: #f3f4f6;
+    --card: #ffffff;
+    --text: #1f2937;
+    --muted: #6b7280;
+    --accent: #1d4ed8;
+    --accent-hover: #1e40af;
+    --border: #d1d5db;
+    --error: #b91c1c;
+    --success-bg: #ecfdf5;
+    --success-text: #065f46;
+    --notice-bg: #fef3c7;
+    --notice-text: #78350f;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --bg: #111827;
+        --card: #1f2937;
+        --text: #f3f4f6;
+        --muted: #9ca3af;
+        --accent: #3b82f6;
+        --accent-hover: #2563eb;
+        --border: #374151;
+        --error: #f87171;
+        --success-bg: #064e3b;
+        --success-text: #d1fae5;
+        --notice-bg: #78350f;
+        --notice-text: #fef3c7;
+    }
+}
+
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    padding: 16px;
+    background: var(--bg);
+    color: var(--text);
+    font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+.card {
+    max-width: 480px;
+    margin: 24px auto;
+    padding: 24px;
+    background: var(--card);
+    border-radius: 12px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, .1);
+}
+
+h1 { font-size: 1.4rem; margin: 0 0 16px; }
+h2 { font-size: 1.15rem; margin: 0 0 4px; }
+
+.training {
+    padding: 12px 0 16px;
+    margin-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+}
+.training p { margin: 2px 0; color: var(--muted); }
+.training .desc { margin-top: 8px; color: var(--text); }
+
+label { display: block; font-weight: 600; margin: 14px 0 4px; }
+
+input[type="text"] {
+    width: 100%;
+    padding: 10px 12px;
+    font-size: 1rem;
+    color: var(--text);
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+}
+input[aria-invalid="true"] { border-color: var(--error); }
+
+.error { color: var(--error); font-size: .9rem; margin: 4px 0 0; }
+
+button {
+    width: 100%;
+    margin-top: 24px;
+    padding: 12px;
+    font-size: 1rem;
+    font-weight: 600;
+    color: #fff;
+    background: var(--accent);
+    border: 0;
+    border-radius: 8px;
+    cursor: pointer;
+}
+button:hover { background: var(--accent-hover); }
+
+.notice, .success { padding: 12px 14px; border-radius: 8px; }
+.notice { background: var(--notice-bg); color: var(--notice-text); }
+.success { background: var(--success-bg); color: var(--success-text); }
