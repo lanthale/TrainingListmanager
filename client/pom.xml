@@ -6,7 +6,7 @@
 
     <groupId>de.mindarchitects</groupId>
     <artifactId>training-listmanager</artifactId>
-    <version>1.0.1</version>
+    <version>1.0.2</version>
     <packaging>jar</packaging>
     <name>TrainingListmanager</name>
 
