@@ -57,7 +57,18 @@ public class App extends Application {
         updateBtn.setOnAction(e -> UpdateDialog.check(stage, settings, getHostServices(), true));
         Region spacer = new Region();
         javafx.scene.layout.HBox.setHgrow(spacer, Priority.ALWAYS);
+        // MINDArchitects-Logo (weiß) dunkel eingefärbt für die helle Werkzeugleiste
+        javafx.scene.image.ImageView logo = new javafx.scene.image.ImageView(
+                new javafx.scene.image.Image(App.class.getResourceAsStream("/icons/logo.png")));
+        logo.setFitHeight(52);
+        logo.setPreserveRatio(true);
+        logo.setSmooth(true);
+        logo.setEffect(new javafx.scene.effect.ColorAdjust(0, 0, -1, 0));
+        logo.setMouseTransparent(true);
         ToolBar toolbar = new ToolBar(newBtn, refresh, spacer, updateBtn, settingsBtn);
+        toolbar.setMinHeight(64);
+        // Logo genau in der Fenstermitte über der Werkzeugleiste (unabhängig von der Breite der Buttons)
+        javafx.scene.layout.StackPane top = new javafx.scene.layout.StackPane(toolbar, logo);
 
         list.setCellFactory(lv -> new TrainingCell());
         list.setPlaceholder(new Label("Keine Trainings"));
@@ -74,7 +85,7 @@ public class App extends Application {
         SplitPane.setResizableWithParent(left, false);
 
         status.setPadding(new Insets(4, 10, 4, 10));
-        BorderPane root = new BorderPane(split, toolbar, null, status, null);
+        BorderPane root = new BorderPane(split, top, null, status, null);
 
         for (int size : new int[]{16, 32, 64, 128, 256}) {
             var in = App.class.getResourceAsStream("/icons/app-" + size + ".png");

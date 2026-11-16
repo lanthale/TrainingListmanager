@@ -1,7 +1,5 @@
 import javax.imageio.ImageIO;
 import java.awt.*;
-import java.awt.geom.Ellipse2D;
-import java.awt.geom.Path2D;
 import java.awt.geom.RoundRectangle2D;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayOutputStream;
@@ -15,7 +13,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Erzeugt das App-Icon (Teilnehmerliste mit Häkchen auf blauem Grund) in allen Größen.
+ * Erzeugt das App-Icon (MINDArchitects-„M“ auf blaugrauem Grund) in allen Größen.
  *
  *   java client/packaging/IconGen.java client
  *
@@ -33,6 +31,7 @@ public class IconGen {
         File iconset = new File(pack, "icon.iconset");
         File res = new File(base, "src/main/resources/icons");
         iconset.mkdirs();
+        mark = ImageIO.read(new File(pack, "m-logo.png"));
         res.mkdirs();
 
         // macOS-Iconset
@@ -57,71 +56,44 @@ public class IconGen {
         System.out.println("Icons erzeugt in " + pack.getAbsolutePath());
     }
 
+    /** Weißes M-Zeichen aus dem MINDArchitects-Logo (packaging/m-logo.png). */
+    static BufferedImage mark;
+
     /** Zeichnet das Icon auf einer 1024er-Fläche und skaliert auf size. */
     static BufferedImage render(int size) {
         BufferedImage img = new BufferedImage(size, size, BufferedImage.TYPE_INT_ARGB);
         Graphics2D g = img.createGraphics();
         g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
         g.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
-        g.setRenderingHint(RenderingHints.KEY_STROKE_CONTROL, RenderingHints.VALUE_STROKE_PURE);
+        g.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
         double k = size / 1024.0;
         g.scale(k, k);
 
-        boolean small = size <= 32;   // kleine Größen: weniger Rand, kräftigere Formen
+        boolean small = size <= 32;   // kleine Größen: weniger Rand, größeres Zeichen
         double inset = small ? 40 : 100;
         double body = 1024 - 2 * inset;
+        double arc = body * 0.45;
 
-        // Schatten (nur große Größen)
         if (!small) {
-            g.setColor(new Color(0, 0, 0, 50));
-            g.fill(new RoundRectangle2D.Double(inset, inset + 14, body, body, body * 0.45, body * 0.45));
+            g.setColor(new Color(0, 0, 0, 60));
+            g.fill(new RoundRectangle2D.Double(inset, inset + 14, body, body, arc, arc));
         }
-        // Hintergrund: Verlauf Blau
-        RoundRectangle2D bg = new RoundRectangle2D.Double(inset, inset, body, body, body * 0.45, body * 0.45);
-        g.setPaint(new GradientPaint(0, (float) inset, new Color(0x3B82F6), 0, (float) (inset + body), new Color(0x1E3A8A)));
+        // Hintergrund: Blaugrau der Webseite → Nachtblau
+        RoundRectangle2D bg = new RoundRectangle2D.Double(inset, inset, body, body, arc, arc);
+        g.setPaint(new GradientPaint(0, (float) inset, new Color(0x383A4F), 0, (float) (inset + body), new Color(0x10121F)));
         g.fill(bg);
 
-        // Klemmbrett
-        double cx = 512, cardW = small ? 520 : 430, cardH = small ? 620 : 540;
-        double cardX = cx - cardW / 2, cardY = small ? 250 : 270;
-        g.setColor(new Color(0, 0, 0, 40));
-        g.fill(new RoundRectangle2D.Double(cardX, cardY + 12, cardW, cardH, 56, 56));
-        g.setColor(Color.WHITE);
-        g.fill(new RoundRectangle2D.Double(cardX, cardY, cardW, cardH, 56, 56));
-        // Klammer oben
-        double clipW = cardW * 0.42;
-        g.setColor(new Color(0xCBD5E1));
-        g.fill(new RoundRectangle2D.Double(cx - clipW / 2, cardY - 40, clipW, 90, 36, 36));
+        // M-Zeichen zentriert
+        double maxW = small ? body * 0.78 : body * 0.62;
+        double w = maxW, h = w * mark.getHeight() / mark.getWidth();
+        double x = 512 - w / 2, y = 512 - h / 2 - (small ? 0 : 30);
+        g.drawImage(mark, (int) Math.round(x), (int) Math.round(y), (int) Math.round(w), (int) Math.round(h), null);
 
-        // Drei Zeilen: zwei abgehakt (grün), eine offen
-        int rows = small ? 2 : 3;
-        double rowGap = (cardH - 140) / rows;
-        for (int i = 0; i < rows; i++) {
-            double y = cardY + 120 + i * rowGap;
-            double r = small ? 64 : 46;
-            double circleX = cardX + (small ? 60 : 55);
-            boolean done = i < rows - 1;
-            if (done) {
-                g.setColor(new Color(0x22C55E));
-                g.fill(new Ellipse2D.Double(circleX, y - r, 2 * r, 2 * r));
-                g.setColor(Color.WHITE);
-                g.setStroke(new BasicStroke(small ? 22 : 16, BasicStroke.CAP_ROUND, BasicStroke.JOIN_ROUND));
-                Path2D check = new Path2D.Double();
-                check.moveTo(circleX + r * 0.52, y + r * 0.02);
-                check.lineTo(circleX + r * 0.88, y + r * 0.38);
-                check.lineTo(circleX + r * 1.50, y - r * 0.36);
-                g.draw(check);
-            } else {
-                g.setColor(new Color(0x94A3B8));
-                g.setStroke(new BasicStroke(small ? 18 : 12));
-                g.draw(new Ellipse2D.Double(circleX + 6, y - r + 6, 2 * r - 12, 2 * r - 12));
-            }
-            // Textzeile
-            double lineX = circleX + 2 * r + (small ? 40 : 34);
-            double lineW = cardX + cardW - (small ? 50 : 50) - lineX;
-            g.setColor(done ? new Color(0x334155) : new Color(0xCBD5E1));
-            double lh = small ? 56 : 34;
-            g.fill(new RoundRectangle2D.Double(lineX, y - lh / 2, lineW * (i == 1 ? 0.75 : 1.0), lh, lh, lh));
+        // Bronze-Linie unter dem Zeichen (Akzentfarbe der Webseite)
+        if (!small) {
+            g.setColor(new Color(0xBB875D));
+            double lw = w * 0.45;
+            g.fill(new RoundRectangle2D.Double(512 - lw / 2, y + h + 50, lw, 22, 22, 22));
         }
         g.dispose();
         return img;
