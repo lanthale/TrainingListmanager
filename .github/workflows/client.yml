@@ -41,14 +41,23 @@ jobs:
           java-package: jdk+fx
           cache: maven
 
-      - name: Maven-Build
-        run: mvn -B -f client/pom.xml package
-
+      # Bei einem Tag vX.Y.Z bestimmt der Tag die Version (wichtig für das Software-Update im Client),
+      # sonst die Version aus client/pom.xml.
       - name: Version ermitteln
         id: version
         run: |
-          V=$(mvn -B -q -f client/pom.xml help:evaluate -Dexpression=project.version -DforceStdout)
-          echo "version=${V%-SNAPSHOT}" >> "$GITHUB_OUTPUT"
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            V="${GITHUB_REF#refs/tags/v}"
+            mvn -B -q -f client/pom.xml versions:set -DnewVersion="$V" -DgenerateBackupPoms=false
+          else
+            V=$(mvn -B -q -f client/pom.xml help:evaluate -Dexpression=project.version -DforceStdout)
+            V="${V%-SNAPSHOT}"
+          fi
+          echo "Version: $V"
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+
+      - name: Maven-Build
+        run: mvn -B -f client/pom.xml package
 
       - name: Installer erzeugen (jpackage)
         run: |
@@ -65,6 +74,7 @@ jobs:
             --add-modules java.base,java.desktop,java.logging,java.naming,java.net.http,java.prefs,java.security.sasl,java.sql,java.xml,jdk.net,jdk.security.auth,jdk.unsupported,jdk.localedata,jdk.charsets,javafx.base,javafx.graphics,javafx.controls \
             --jlink-options "--strip-debug --no-man-pages --no-header-files" \
             --java-options "-Dfile.encoding=UTF-8 --enable-native-access=ALL-UNNAMED,javafx.graphics" \
+            --java-options "-Dapp.version=${{ steps.version.outputs.version }}" \
             --dest dist \
             ${{ matrix.extra }}
           ls -la dist

@@ -52,7 +52,18 @@ Die Pakete sind nicht signiert:
 - **macOS:** Beim ersten Start mit Rechtsklick → *Öffnen* bestätigen, oder unter *Systemeinstellungen → Datenschutz & Sicherheit* „Trotzdem öffnen“ wählen.
 - **Windows:** Bei der SmartScreen-Warnung *Weitere Informationen → Trotzdem ausführen* wählen.
 
-**Release erstellen:** In `client/pom.xml` die `<version>` erhöhen, dann einen Tag `vX.Y.Z` pushen. Der Workflow hängt die Installer dann an ein GitHub-Release.
+**Release erstellen:** In `client/pom.xml` die `<version>` erhöhen, committen und einen Tag `vX.Y.Z` pushen, zum Beispiel `git tag v1.0.1 && git push origin v1.0.1`. Der Workflow baut die Installer mit der Version aus dem Tag und hängt sie an ein GitHub-Release. Die Versionshinweise trägt man danach auf GitHub im Release ein. Der Client zeigt sie im Update-Dialog an.
+
+### Software-Update
+Der Client fragt beim Start im Hintergrund das neueste Release auf GitHub ab (`lanthale/TrainingListmanager`). Ist es neuer als die installierte Version, erscheint ein Dialog mit den Versionshinweisen und drei Möglichkeiten:
+- **Herunterladen & installieren:** lädt den passenden Installer (.dmg, .msi oder .deb) und prüft ihn mit der SHA-256-Prüfsumme von GitHub. Danach wird der Installer gestartet und der Client beendet:
+  - Windows: Das MSI aktualisiert die vorhandene Installation.
+  - macOS: Das Disk-Image wird geöffnet. Die App in „Programme“ ziehen und „Ersetzen“ bestätigen.
+  - Linux: Das Paket öffnet sich in der Softwareverwaltung.
+- **Diese Version überspringen:** Diese Version wird beim Start nicht mehr gemeldet.
+- **Später:** Der Dialog schließt sich, beim nächsten Start kommt der Hinweis wieder.
+
+Mit **Nach Updates suchen** in der Werkzeugleiste kann man jederzeit selbst prüfen. Die automatische Prüfung lässt sich in den Einstellungen abschalten. Wird der Client per `mvn javafx:run` gestartet, gilt er als Entwicklungsversion und prüft beim Start nicht automatisch.
 
 ### Client einrichten
 1. *Einstellungen* öffnen und **Schlüssel erzeugen** klicken.

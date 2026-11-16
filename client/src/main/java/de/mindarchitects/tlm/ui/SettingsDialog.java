@@ -9,6 +9,7 @@ import de.mindarchitects.tlm.mail.QrCode;
 import de.mindarchitects.tlm.settings.Secrets;
 import de.mindarchitects.tlm.settings.Settings;
 import de.mindarchitects.tlm.settings.Settings.SmtpSecurity;
+import de.mindarchitects.tlm.update.AppVersion;
 import javafx.geometry.Insets;
 import javafx.scene.control.*;
 import javafx.scene.input.Clipboard;
@@ -39,6 +40,7 @@ public final class SettingsDialog extends Dialog<ButtonType> {
     private final PasswordField smtpPassword = new PasswordField();
     private final TextField fromName = new TextField();
     private final TextField fromAddress = new TextField();
+    private final CheckBox checkUpdates = new CheckBox("Beim Start nach neuen Versionen suchen");
 
     public SettingsDialog(Window owner, Settings settings, Secrets secrets) {
         this.settings = settings;
@@ -63,6 +65,7 @@ public final class SettingsDialog extends Dialog<ButtonType> {
         smtpPassword.setText(secrets.get(Secrets.SMTP_PASSWORD));
         fromName.setText(settings.fromName());
         fromAddress.setText(settings.fromAddress());
+        checkUpdates.setSelected(settings.checkUpdates());
 
         Button generate = Fx.button("Schlüssel erzeugen …", MaterialDesignK.KEY_PLUS);
         generate.setOnAction(e -> generateKey());
@@ -111,6 +114,9 @@ public final class SettingsDialog extends Dialog<ButtonType> {
         g.addRow(r++, new Label("Absendername"), fromName);
         g.addRow(r++, new Label("Absenderadresse"), fromAddress);
         g.add(testMail, 1, r++);
+        g.add(section("Software-Update"), 0, r++, 2, 1);
+        Label version = new Label("Installierte Version: " + AppVersion.current());
+        g.addRow(r++, version, checkUpdates);
         if (!secrets.isPersistent()) {
             Label warn = new Label("Kein Schlüsselbund verfügbar – Passwörter gelten nur bis zum Beenden.");
             warn.setStyle("-fx-text-fill: #b45309;");
@@ -135,6 +141,7 @@ public final class SettingsDialog extends Dialog<ButtonType> {
         settings.smtpUser(smtpUser.getText());
         settings.fromName(fromName.getText());
         settings.fromAddress(fromAddress.getText());
+        settings.checkUpdates(checkUpdates.isSelected());
         settings.flush();
         secrets.set(Secrets.API_KEY, apiKey.getText().trim());
         secrets.set(Secrets.SMTP_PASSWORD, smtpPassword.getText());

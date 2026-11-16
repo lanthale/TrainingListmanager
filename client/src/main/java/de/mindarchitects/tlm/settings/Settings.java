@@ -89,6 +89,14 @@ public final class Settings {
     public String fromName() { return prefs.get("fromName", ""); }
     public void fromName(String v) { prefs.put("fromName", v.trim()); }
 
+    /** Beim Start automatisch auf GitHub nach einer neuen Version suchen. */
+    public boolean checkUpdates() { return prefs.getBoolean("checkUpdates", true); }
+    public void checkUpdates(boolean v) { prefs.putBoolean("checkUpdates", v); }
+
+    /** Version, die der Nutzer mit „Überspringen“ ausgeblendet hat. */
+    public String skippedVersion() { return prefs.get("skippedVersion", ""); }
+    public void skippedVersion(String v) { prefs.put("skippedVersion", v); }
+
     public String exportDir() { return prefs.get("exportDir", System.getProperty("user.home")); }
     public void exportDir(String v) { prefs.put("exportDir", v); }
 

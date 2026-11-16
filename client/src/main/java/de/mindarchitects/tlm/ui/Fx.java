@@ -18,6 +18,11 @@ public final class Fx {
 
     /** Führt work im Hintergrund aus und ruft onSuccess im FX-Thread auf; Fehler werden angezeigt. */
     public static <T> void async(Window owner, Callable<T> work, Consumer<T> onSuccess) {
+        asyncQuiet(work, onSuccess, ex -> error(owner, "Fehler", ex));
+    }
+
+    /** Wie {@link #async}, aber Fehler gehen an onError (z. B. still ignorieren). */
+    public static <T> void asyncQuiet(Callable<T> work, Consumer<T> onSuccess, Consumer<Throwable> onError) {
         Task<T> task = new Task<>() {
             @Override
             protected T call() throws Exception {
@@ -25,7 +30,7 @@ public final class Fx {
             }
         };
         task.setOnSucceeded(e -> onSuccess.accept(task.getValue()));
-        task.setOnFailed(e -> error(owner, "Fehler", task.getException()));
+        task.setOnFailed(e -> onError.accept(task.getException()));
         Thread t = new Thread(task, "tlm-worker");
         t.setDaemon(true);
         t.start();

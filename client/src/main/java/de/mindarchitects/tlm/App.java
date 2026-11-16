@@ -9,6 +9,7 @@ import de.mindarchitects.tlm.api.Model.TrainingDetail;
 import de.mindarchitects.tlm.settings.Secrets;
 import de.mindarchitects.tlm.settings.Settings;
 import de.mindarchitects.tlm.ui.*;
+import de.mindarchitects.tlm.update.AppVersion;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.geometry.Insets;
@@ -52,9 +53,11 @@ public class App extends Application {
         refresh.setOnAction(e -> reload());
         Button settingsBtn = Fx.button("Einstellungen …", MaterialDesignC.COG);
         settingsBtn.setOnAction(e -> openSettings());
+        Button updateBtn = Fx.button("Nach Updates suchen", MaterialDesignU.UPDATE);
+        updateBtn.setOnAction(e -> UpdateDialog.check(stage, settings, getHostServices(), true));
         Region spacer = new Region();
         javafx.scene.layout.HBox.setHgrow(spacer, Priority.ALWAYS);
-        ToolBar toolbar = new ToolBar(newBtn, refresh, spacer, settingsBtn);
+        ToolBar toolbar = new ToolBar(newBtn, refresh, spacer, updateBtn, settingsBtn);
 
         list.setCellFactory(lv -> new TrainingCell());
         list.setPlaceholder(new Label("Keine Trainings"));
@@ -79,9 +82,12 @@ public class App extends Application {
                 stage.getIcons().add(new javafx.scene.image.Image(in));
             }
         }
-        stage.setTitle("TrainingListmanager");
+        stage.setTitle("TrainingListmanager " + AppVersion.current());
         stage.setScene(new Scene(root, 1150, 720));
         stage.show();
+
+        // Still im Hintergrund nach einer neuen Version suchen (nicht in der Entwicklungsversion)
+        UpdateDialog.check(stage, settings, getHostServices(), false);
 
         if (secrets.get(Secrets.API_KEY).isBlank()) {
             Platform.runLater(() -> {
