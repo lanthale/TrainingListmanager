@@ -127,13 +127,24 @@ public class ApiClient {
         try {
             node = json.readTree(response.body());
         } catch (IOException e) {
-            throw new ApiException("Ungültige Antwort vom Server (HTTP " + response.statusCode() + ")", e);
+            throw new ApiException(nonJsonHint(response.statusCode()), e);
         }
         if (response.statusCode() >= 400) {
             String msg = node != null && node.hasNonNull("error") ? node.get("error").asText() : "Fehler";
             throw new ApiException(msg + " (HTTP " + response.statusCode() + ")");
         }
         return node;
+    }
+
+    /** Erklärung, wenn der Server statt JSON z. B. eine HTML-Fehlerseite liefert. */
+    private String nonJsonHint(int status) {
+        String hint = switch (status) {
+            case 403 -> "Zugriff auf api.php verweigert. Sind api.php und die aktuelle public/.htaccess hochgeladen?";
+            case 404 -> "api.php nicht gefunden. API-URL in den Einstellungen und Upload prüfen.";
+            case 500 -> "PHP-Fehler auf dem Server. PHP-Version (mind. 8.1) und Upload von src/ prüfen.";
+            default -> "Der Server hat kein JSON geliefert. API-URL prüfen.";
+        };
+        return "Ungültige Antwort vom Server (HTTP " + status + "): " + hint + "\nURL: " + baseUrl;
     }
 
     private <T> T convert(JsonNode node, Class<T> type) {
