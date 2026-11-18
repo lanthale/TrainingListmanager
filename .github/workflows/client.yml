@@ -26,7 +26,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: macos-15   # Apple Silicon; fest statt macos-latest (dort oft keine freien Runner)
+          - os: macos-latest   # Apple Silicon; fest statt macos-latest (dort oft keine freien Runner)
             type: dmg
             # Bundle-Name (Menüleiste) max. 16 Zeichen; .app-Datei heißt weiter TrainingListmanager.app
             extra: --mac-package-name "TL Manager" --icon client/packaging/TrainingListmanager.icns
