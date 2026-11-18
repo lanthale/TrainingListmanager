@@ -6,14 +6,15 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * API-Schlüssel und SMTP-Passwort im Schlüsselbund des Betriebssystems
+ * API-Schlüssel im Schlüsselbund des Betriebssystems
  * (macOS-Keychain, Windows Credential Manager, Linux Secret Service).
  * Ist keiner verfügbar, werden die Werte nur bis zum Beenden im Speicher gehalten.
  */
 public final class Secrets {
 
     public static final String API_KEY = "api-key";
-    public static final String SMTP_PASSWORD = "smtp-password";
+    /** Passwort des früheren SMTP-Versands; wird nach dem Update einmalig gelöscht. */
+    public static final String LEGACY_SMTP_PASSWORD = "smtp-password";
 
     private static final String SERVICE = "TrainingListmanager";
 

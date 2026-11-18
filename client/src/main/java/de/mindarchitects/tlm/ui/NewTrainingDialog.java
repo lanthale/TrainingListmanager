@@ -18,20 +18,18 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
-import java.util.List;
 
-/** Dialog: neues Training mit Teilnehmerliste und Mailtext. */
+/** Dialog: neues Training anlegen; der Server erzeugt dabei den QR-Code. */
 public final class NewTrainingDialog extends Dialog<NewTrainingDialog.Data> {
 
-    public record Data(String title, String description, LocalDateTime startsAt, String location,
-                       List<String> emails, String subject, String body) {}
+    public record Data(String title, String description, LocalDateTime startsAt, String location) {}
 
     private static final DateTimeFormatter TIME = DateTimeFormatter.ofPattern("H:mm");
 
-    public NewTrainingDialog(Window owner, String subjectTemplate, String bodyTemplate) {
+    public NewTrainingDialog(Window owner) {
         initOwner(owner);
         setTitle("Neues Training");
-        setHeaderText("Training anlegen und Einladungen versenden");
+        setHeaderText("Training anlegen – der QR-Code für die Registrierung wird automatisch erzeugt");
         setResizable(true);
 
         TextField title = new TextField();
@@ -53,18 +51,14 @@ public final class NewTrainingDialog extends Dialog<NewTrainingDialog.Data> {
         grid.addRow(2, new Label("Ort"), location);
         grid.addRow(3, new Label("Beschreibung"), description);
 
-        MailComposer composer = new MailComposer(true, subjectTemplate, bodyTemplate);
-
-        VBox content = new VBox(14, grid, new Separator(), composer);
+        VBox content = new VBox(14, grid);
         content.setPadding(new Insets(4));
-        ScrollPane scroll = new ScrollPane(content);
-        scroll.setFitToWidth(true);
-        scroll.setPrefSize(640, 640);
-        getDialogPane().setContent(scroll);
+        content.setPrefWidth(560);
+        getDialogPane().setContent(content);
 
-        ButtonType send = new ButtonType("Anlegen & senden", ButtonBar.ButtonData.OK_DONE);
+        ButtonType send = new ButtonType("Anlegen", ButtonBar.ButtonData.OK_DONE);
         getDialogPane().getButtonTypes().addAll(send, ButtonType.CANCEL);
-        Fx.decorate(getDialogPane().lookupButton(send), MaterialDesignS.SEND);
+        Fx.decorate(getDialogPane().lookupButton(send), MaterialDesignC.CHECK);
         Fx.decorate(getDialogPane().lookupButton(ButtonType.CANCEL), MaterialDesignC.CLOSE);
 
         Node sendButton = getDialogPane().lookupButton(send);
@@ -74,21 +68,10 @@ public final class NewTrainingDialog extends Dialog<NewTrainingDialog.Data> {
                 error = "Bitte einen Titel eingeben.";
             } else if (date.getValue() != null && parseTime(time.getText()) == null) {
                 error = "Uhrzeit bitte im Format HH:MM eingeben.";
-            } else {
-                error = composer.validate();
             }
             if (error != null) {
                 e.consume();
                 Fx.error(getDialogPane().getScene().getWindow(), "Eingabe prüfen", error);
-                return;
-            }
-            int n = composer.recipients().valid().size();
-            Alert confirm = new Alert(Alert.AlertType.CONFIRMATION,
-                    "Training anlegen und " + n + " Einladung(en) jetzt versenden?", ButtonType.OK, ButtonType.CANCEL);
-            confirm.initOwner(getDialogPane().getScene().getWindow());
-            confirm.setHeaderText(null);
-            if (confirm.showAndWait().orElse(ButtonType.CANCEL) != ButtonType.OK) {
-                e.consume();
             }
         });
 
@@ -99,8 +82,7 @@ public final class NewTrainingDialog extends Dialog<NewTrainingDialog.Data> {
             LocalDateTime startsAt = date.getValue() == null ? null
                     : LocalDateTime.of(date.getValue(), parseTime(time.getText()));
             return new Data(title.getText().strip(), blankToNull(description.getText()), startsAt,
-                    blankToNull(location.getText()), composer.recipients().valid(),
-                    composer.subject(), composer.body());
+                    blankToNull(location.getText()));
         });
     }
 

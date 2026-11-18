@@ -23,6 +23,10 @@ import java.util.Map;
 /** Zugriff auf public/api.php per HTTPS mit Header X-Api-Key. */
 public class ApiClient {
 
+    private static final String OUTDATED_SERVER = "Auf dem Server läuft noch die alte API ohne QR-Codes pro Training. "
+            + "Bitte public/api.php und src/invitation.php hochladen und "
+            + "sql/migrations/004_training_code_consent.sql in phpMyAdmin ausführen.";
+
     private static final DateTimeFormatter SQL_DATETIME = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     private final String baseUrl;
@@ -72,35 +76,40 @@ public class ApiClient {
     }
 
     public TrainingDetail training(long id) {
-        return convert(get("training", Map.of("id", String.valueOf(id))), TrainingDetail.class);
+        JsonNode node = get("training", Map.of("id", String.valueOf(id)));
+        if (!node.has("code")) {
+            // Ältere api.php kennt noch keine QR-Codes pro Training
+            throw new ApiException(OUTDATED_SERVER);
+        }
+        return convert(node, TrainingDetail.class);
     }
 
-    public long createTraining(String title, String description, LocalDateTime startsAt, String location) {
+    /** Legt das Training an; der Server erzeugt dabei gleich den QR-Code. */
+    public CreatedTraining createTraining(String title, String description, LocalDateTime startsAt, String location) {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("title", title);
         body.put("description", description);
         body.put("starts_at", startsAt == null ? null : startsAt.format(SQL_DATETIME));
         body.put("location", location);
-        return convert(post("create_training", body), IdResult.class).id();
+        return convert(post("create_training", body), CreatedTraining.class);
     }
 
     public void setActive(long id, boolean active) {
         post("set_active", Map.of("id", id, "active", active));
     }
 
-    public CreateInvitationsResult createInvitations(long trainingId, List<String> emails) {
-        return convert(post("create_invitations", Map.of("training_id", trainingId, "emails", emails)),
-                CreateInvitationsResult.class);
-    }
-
-    public CreatedInvitation renewInvitation(long invitationId) {
-        return convert(post("renew_invitation", Map.of("id", invitationId)), CreatedInvitation.class);
-    }
-
-    public void markSent(List<Long> invitationIds) {
-        if (!invitationIds.isEmpty()) {
-            post("mark_sent", Map.of("ids", invitationIds));
+    /** Neuer QR-Code für das Training; der bisherige wird ungültig. */
+    public Code createCode(long trainingId) {
+        try {
+            return convert(post("create_code", Map.of("training_id", trainingId)), CodeResult.class).code();
+        } catch (ApiException e) {
+            throw e.getMessage() != null && e.getMessage().startsWith("Unbekannte Aktion") ? new ApiException(OUTDATED_SERVER) : e;
         }
+    }
+
+    /** Löscht das Training mit allen Registrierungen und QR-Codes endgültig. */
+    public void deleteTraining(long id) {
+        post("delete_training", Map.of("id", id));
     }
 
     // ---------------------------------------------------------------------

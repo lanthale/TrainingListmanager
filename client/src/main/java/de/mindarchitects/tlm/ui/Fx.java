@@ -62,6 +62,20 @@ public final class Fx {
         a.showAndWait();
     }
 
+    /** Rückfrage mit eigenem OK-Text; „Abbrechen“ ist die Vorgabe (Enter löst nichts Gefährliches aus). */
+    public static boolean confirm(Window owner, String header, String message, String okText) {
+        javafx.scene.control.ButtonType ok = new javafx.scene.control.ButtonType(okText,
+                javafx.scene.control.ButtonBar.ButtonData.OK_DONE);
+        javafx.scene.control.ButtonType cancel = javafx.scene.control.ButtonType.CANCEL;
+        Alert a = new Alert(Alert.AlertType.CONFIRMATION, message, cancel, ok);
+        a.initOwner(owner);
+        a.setTitle("TrainingListmanager");
+        a.setHeaderText(header);
+        ((Button) a.getDialogPane().lookupButton(ok)).setDefaultButton(false);
+        ((Button) a.getDialogPane().lookupButton(cancel)).setDefaultButton(true);
+        return a.showAndWait().orElse(cancel) == ok;
+    }
+
     /** Symbol (Ikonli, Material Design Icons) für Buttons. */
     public static FontIcon icon(Ikon ikon) {
         FontIcon icon = new FontIcon(ikon);

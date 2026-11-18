@@ -1,6 +1,5 @@
 package de.mindarchitects.tlm;
 
-import de.mindarchitects.tlm.api.Model.Invitation;
 import de.mindarchitects.tlm.api.Model.Registration;
 import de.mindarchitects.tlm.api.Model.Training;
 import de.mindarchitects.tlm.api.Model.TrainingDetail;
@@ -14,11 +13,8 @@ import java.nio.file.Path;
 import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
-/** Export eines Trainings als .xlsx: Blatt „Teilnehmer“ (Registrierungen) und „Einladungen“. */
+/** Export eines Trainings als .xlsx: Blatt „Teilnehmer“ mit allen Registrierungen. */
 public final class ExcelExport {
     private ExcelExport() {}
 
@@ -28,7 +24,6 @@ public final class ExcelExport {
         try (OutputStream out = Files.newOutputStream(file)) {
             Workbook wb = new Workbook(out, "TrainingListmanager", "1.0");
             writeRegistrations(wb.newWorksheet("Teilnehmer"), d);
-            writeInvitations(wb.newWorksheet("Einladungen"), d);
             wb.finish();
         }
     }
@@ -51,10 +46,10 @@ public final class ExcelExport {
         ws.value(1, 0, String.join("  ·  ", List.of(
                 when.isEmpty() ? "ohne Datum" : when + " Uhr",
                 Fmt.nz(t.location()).isEmpty() ? "ohne Ort" : t.location())));
-        ws.value(2, 0, d.registrations().size() + " Registrierung(en) von " + d.invitations().size() + " Einladung(en)");
+        ws.value(2, 0, d.registrations().size() + " Teilnehmer");
 
         int header = 4;
-        List<String> cols = List.of("Nr.", "Vorname", "Nachname", "Job-Position", "Händler", "E-Mail", "Registriert am");
+        List<String> cols = List.of("Nr.", "Vorname", "Nachname", "Job-Position", "Händler", "Registriert am", "Einwilligung am");
         header(ws, header, cols);
 
         List<Registration> regs = d.registrations().stream()
@@ -68,32 +63,11 @@ public final class ExcelExport {
             ws.value(row, 2, r.lastName());
             ws.value(row, 3, r.jobPosition());
             ws.value(row, 4, r.dealer());
-            ws.value(row, 5, r.email());
-            dateCell(ws, row, 6, r.createdAt());
+            dateCell(ws, row, 5, r.createdAt());
+            dateCell(ws, row, 6, r.consentAt());
             row++;
         }
-        finishTable(ws, header, row - 1, cols.size(), new double[]{6, 18, 20, 24, 28, 32, 18});
-    }
-
-    private static void writeInvitations(Worksheet ws, TrainingDetail d) {
-        List<String> cols = List.of("E-Mail", "Status", "Gesendet am", "Registriert am", "Vorname", "Nachname");
-        header(ws, 0, cols);
-
-        Map<Long, Registration> byInvitation = d.registrations().stream()
-                .collect(Collectors.toMap(Registration::invitationId, Function.identity(), (a, b) -> a));
-        int row = 1;
-        for (Invitation i : d.invitations()) {
-            Registration r = byInvitation.get(i.id());
-            String status = i.usedAt() != null ? "registriert" : i.sentAt() != null ? "gesendet" : "nicht gesendet";
-            ws.value(row, 0, i.email());
-            ws.value(row, 1, status);
-            dateCell(ws, row, 2, i.sentAt());
-            dateCell(ws, row, 3, i.usedAt());
-            ws.value(row, 4, r == null ? "" : r.firstName());
-            ws.value(row, 5, r == null ? "" : r.lastName());
-            row++;
-        }
-        finishTable(ws, 0, row - 1, cols.size(), new double[]{32, 16, 18, 18, 18, 20});
+        finishTable(ws, header, row - 1, cols.size(), new double[]{6, 18, 20, 24, 28, 18, 18});
     }
 
     private static void header(Worksheet ws, int row, List<String> cols) {

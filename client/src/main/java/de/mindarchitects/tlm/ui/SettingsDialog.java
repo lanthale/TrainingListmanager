@@ -3,12 +3,8 @@ package de.mindarchitects.tlm.ui;
 import org.kordamp.ikonli.materialdesign2.*;
 
 import de.mindarchitects.tlm.api.ApiClient;
-import de.mindarchitects.tlm.mail.MailTemplate;
-import de.mindarchitects.tlm.mail.Mailer;
-import de.mindarchitects.tlm.mail.QrCode;
 import de.mindarchitects.tlm.settings.Secrets;
 import de.mindarchitects.tlm.settings.Settings;
-import de.mindarchitects.tlm.settings.Settings.SmtpSecurity;
 import de.mindarchitects.tlm.update.AppVersion;
 import javafx.geometry.Insets;
 import javafx.scene.control.*;
@@ -25,7 +21,7 @@ import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.util.HexFormat;
 
-/** Einstellungen: API-Zugang und SMTP. Geheimnisse gehen in den OS-Schlüsselbund. */
+/** Einstellungen: API-Zugang, Mail-Vorlage für die Anwesenheitsliste, Updates. Der API-Schlüssel geht in den OS-Schlüsselbund. */
 public final class SettingsDialog extends Dialog<ButtonType> {
 
     private final Settings settings;
@@ -33,13 +29,9 @@ public final class SettingsDialog extends Dialog<ButtonType> {
 
     private final TextField apiUrl = new TextField();
     private final PasswordField apiKey = new PasswordField();
-    private final TextField smtpHost = new TextField();
-    private final Spinner<Integer> smtpPort = new Spinner<>(1, 65535, 587);
-    private final ChoiceBox<SmtpSecurity> smtpSecurity = new ChoiceBox<>();
-    private final TextField smtpUser = new TextField();
-    private final PasswordField smtpPassword = new PasswordField();
-    private final TextField fromName = new TextField();
-    private final TextField fromAddress = new TextField();
+    private final TextField reportRecipient = new TextField();
+    private final TextField reportSubject = new TextField();
+    private final TextArea reportBody = Fx.textArea("", 6);
     private final CheckBox checkUpdates = new CheckBox("Beim Start nach neuen Versionen suchen");
 
     public SettingsDialog(Window owner, Settings settings, Secrets secrets) {
@@ -52,19 +44,10 @@ public final class SettingsDialog extends Dialog<ButtonType> {
 
         apiUrl.setText(settings.apiUrl());
         apiKey.setText(secrets.get(Secrets.API_KEY));
-        smtpHost.setText(settings.smtpHost());
-        smtpPort.getValueFactory().setValue(settings.smtpPort());
-        smtpPort.setEditable(true);
-        smtpSecurity.getItems().setAll(SmtpSecurity.values());
-        smtpSecurity.setValue(settings.smtpSecurity());
-        smtpSecurity.valueProperty().addListener((o, a, b) -> {
-            if (b == SmtpSecurity.SSL) smtpPort.getValueFactory().setValue(465);
-            if (b == SmtpSecurity.STARTTLS) smtpPort.getValueFactory().setValue(587);
-        });
-        smtpUser.setText(settings.smtpUser());
-        smtpPassword.setText(secrets.get(Secrets.SMTP_PASSWORD));
-        fromName.setText(settings.fromName());
-        fromAddress.setText(settings.fromAddress());
+        reportRecipient.setText(settings.reportRecipient());
+        reportRecipient.setPromptText("optional, z. B. empfaenger@firma.de");
+        reportSubject.setText(settings.reportSubject());
+        reportBody.setText(settings.reportBody());
         checkUpdates.setSelected(settings.checkUpdates());
 
         Button generate = Fx.button("Schlüssel erzeugen …", MaterialDesignK.KEY_PLUS);
@@ -77,20 +60,6 @@ public final class SettingsDialog extends Dialog<ButtonType> {
                 return null;
             }, r -> Fx.info(window(), "Verbindung OK", "Die API hat den Schlüssel akzeptiert."));
         });
-        Button testMail = Fx.button("Test-Mail an Absender senden", MaterialDesignE.EMAIL_CHECK);
-        testMail.setOnAction(e -> {
-            apply();
-            Fx.async(window(), () -> {
-                String link = "https://trainings.mind-architects.de/?t=test";
-                try (Mailer m = new Mailer(settings, secrets.get(Secrets.SMTP_PASSWORD))) {
-                    var mail = MailTemplate.render(settings.mailSubject(), settings.mailBody(),
-                            "Test-Training", "01.01.2030 09:00", "Testort", link);
-                    m.send(settings.fromAddress(), mail, QrCode.png(link, 440));
-                }
-                return null;
-            }, r -> Fx.info(window(), "Test-Mail gesendet", "Bitte das Postfach " + settings.fromAddress() + " prüfen."));
-        });
-
         GridPane g = new GridPane();
         g.setHgap(10);
         g.setVgap(8);
@@ -106,19 +75,20 @@ public final class SettingsDialog extends Dialog<ButtonType> {
         g.addRow(r++, new Label("API-URL"), apiUrl);
         g.addRow(r++, new Label("API-Schlüssel"), new HBox(8, grow(apiKey), generate));
         g.add(testApi, 1, r++);
-        g.add(section("E-Mail-Versand (SMTP)"), 0, r++, 2, 1);
-        g.addRow(r++, new Label("Server"), smtpHost);
-        g.addRow(r++, new Label("Port / Sicherheit"), new HBox(8, smtpPort, smtpSecurity));
-        g.addRow(r++, new Label("Benutzer"), smtpUser);
-        g.addRow(r++, new Label("Passwort"), smtpPassword);
-        g.addRow(r++, new Label("Absendername"), fromName);
-        g.addRow(r++, new Label("Absenderadresse"), fromAddress);
-        g.add(testMail, 1, r++);
+        g.add(section("Anwesenheitsliste per Mail weiterleiten"), 0, r++, 2, 1);
+        g.addRow(r++, new Label("Empfänger"), reportRecipient);
+        g.addRow(r++, new Label("Betreff"), reportSubject);
+        g.addRow(r++, new Label("Text"), reportBody);
+        Label placeholders = new Label("Platzhalter: {titel} {datum} {ort} {anzahl}. Die Mail öffnet sich als Entwurf "
+                + "im Mailprogramm und wird erst dort gesendet.");
+        placeholders.setWrapText(true);
+        placeholders.setStyle("-fx-text-fill: -fx-mid-text-color; -fx-font-size: 0.9em;");
+        g.add(placeholders, 1, r++);
         g.add(section("Software-Update"), 0, r++, 2, 1);
         Label version = new Label("Installierte Version: " + AppVersion.current());
         g.addRow(r++, version, checkUpdates);
         if (!secrets.isPersistent()) {
-            Label warn = new Label("Kein Schlüsselbund verfügbar – Passwörter gelten nur bis zum Beenden.");
+            Label warn = new Label("Kein Schlüsselbund verfügbar – der API-Schlüssel gilt nur bis zum Beenden.");
             warn.setStyle("-fx-text-fill: #b45309;");
             g.add(warn, 0, r, 2, 1);
         }
@@ -135,16 +105,12 @@ public final class SettingsDialog extends Dialog<ButtonType> {
 
     private void apply() {
         settings.apiUrl(apiUrl.getText());
-        settings.smtpHost(smtpHost.getText());
-        settings.smtpPort(smtpPort.getValue());
-        settings.smtpSecurity(smtpSecurity.getValue());
-        settings.smtpUser(smtpUser.getText());
-        settings.fromName(fromName.getText());
-        settings.fromAddress(fromAddress.getText());
+        settings.reportRecipient(reportRecipient.getText());
+        settings.reportSubject(reportSubject.getText().isBlank() ? Settings.DEFAULT_REPORT_SUBJECT : reportSubject.getText());
+        settings.reportBody(reportBody.getText().isBlank() ? Settings.DEFAULT_REPORT_BODY : reportBody.getText());
         settings.checkUpdates(checkUpdates.isSelected());
         settings.flush();
         secrets.set(Secrets.API_KEY, apiKey.getText().trim());
-        secrets.set(Secrets.SMTP_PASSWORD, smtpPassword.getText());
     }
 
     /** Erzeugt einen neuen API-Schlüssel und zeigt den Hash für config.php an. */

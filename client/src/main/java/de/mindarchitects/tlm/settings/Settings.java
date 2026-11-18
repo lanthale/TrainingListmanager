@@ -3,91 +3,52 @@ package de.mindarchitects.tlm.settings;
 import java.util.prefs.BackingStoreException;
 import java.util.prefs.Preferences;
 
-/** Nicht-geheime Einstellungen (java.util.prefs). Passwörter liegen in {@link Secrets}. */
+/** Nicht-geheime Einstellungen (java.util.prefs). Der API-Schlüssel liegt in {@link Secrets}. */
 public final class Settings {
-
-    public enum SmtpSecurity { STARTTLS, SSL, NONE }
 
     public static final String DEFAULT_API_URL = "https://trainings.mind-architects.de/api.php";
 
-    public static final String DEFAULT_SUBJECT = "Einladung: {titel}";
+    /** Vorlage für die Mail mit der Anwesenheitsliste. Platzhalter: {titel} {datum} {ort} {anzahl}. */
+    public static final String DEFAULT_REPORT_SUBJECT = "Anwesenheitsliste: {titel} ({datum})";
 
-    public static final String DEFAULT_BODY = """
+    public static final String DEFAULT_REPORT_BODY = """
             Guten Tag,
 
-            Sie sind herzlich zum Training „{titel}“ am {datum} in {ort} eingeladen.
-
-            Bitte registrieren Sie sich über den folgenden QR-Code oder Ihren persönlichen Link:
-            {link}
-
-            {qr}
-
-            Der Link ist nur für Sie bestimmt und kann einmal verwendet werden.
+            anbei die Anwesenheitsliste zum Training „{titel}“ am {datum} in {ort} mit {anzahl} Teilnehmer(n).
 
             Viele Grüße
             """;
 
-    /** Vorbelegung für den Mailversand (Postfach von mind-architects). Das Passwort trägt der Nutzer selbst ein. */
-    public static final String DEFAULT_SMTP_HOST = "smtps.udag.de";
-    public static final int DEFAULT_SMTP_PORT = 465;
-    public static final SmtpSecurity DEFAULT_SMTP_SECURITY = SmtpSecurity.SSL;
-    public static final String DEFAULT_MAILBOX = "office@mind-architects.de";
-
-    private static final int SETTINGS_VERSION = 2;
+    private static final int SETTINGS_VERSION = 3;
 
     private final Preferences prefs = Preferences.userRoot().node("de/mindarchitects/traininglistmanager");
+    private boolean removedSmtp;
 
     public Settings() {
         migrate();
     }
 
-    /** Ersetzt die alte IONOS-Vorbelegung einmalig durch die neue SMTP-Konfiguration. */
+    /** Version 3: E-Mail-Versand per SMTP entfällt – alte SMTP- und Einladungs-Einstellungen entfernen. */
     private void migrate() {
         if (prefs.getInt("settingsVersion", 1) >= SETTINGS_VERSION) {
             return;
         }
-        String host = prefs.get("smtpHost", "");
-        if (host.isEmpty() || host.equalsIgnoreCase("smtp.ionos.de")) {
-            prefs.remove("smtpHost");
-            prefs.remove("smtpPort");
-            prefs.remove("smtpSecurity");
+        for (String key : new String[]{"smtpHost", "smtpPort", "smtpSecurity", "smtpUser", "fromAddress",
+                "fromName", "mailSubject", "mailBody"}) {
+            prefs.remove(key);
         }
-        if (prefs.get("smtpUser", "").isEmpty()) {
-            prefs.remove("smtpUser");
-        }
-        if (prefs.get("fromAddress", "").isEmpty()) {
-            prefs.remove("fromAddress");
-        }
+        removedSmtp = true;
         prefs.putInt("settingsVersion", SETTINGS_VERSION);
         flush();
     }
 
+    /** true direkt nach der Umstellung auf Version 3 (dann das alte SMTP-Passwort aus dem Schlüsselbund löschen). */
+    public boolean removedSmtp() {
+        return removedSmtp;
+    }
+
     public String apiUrl() { return prefs.get("apiUrl", DEFAULT_API_URL); }
     public void apiUrl(String v) { prefs.put("apiUrl", v.trim()); }
-
-    public String smtpHost() { return prefs.get("smtpHost", DEFAULT_SMTP_HOST); }
-    public void smtpHost(String v) { prefs.put("smtpHost", v.trim()); }
-
-    public int smtpPort() { return prefs.getInt("smtpPort", DEFAULT_SMTP_PORT); }
-    public void smtpPort(int v) { prefs.putInt("smtpPort", v); }
-
-    public SmtpSecurity smtpSecurity() {
-        try {
-            return SmtpSecurity.valueOf(prefs.get("smtpSecurity", DEFAULT_SMTP_SECURITY.name()));
-        } catch (IllegalArgumentException e) {
-            return DEFAULT_SMTP_SECURITY;
-        }
-    }
-    public void smtpSecurity(SmtpSecurity v) { prefs.put("smtpSecurity", v.name()); }
-
-    public String smtpUser() { return prefs.get("smtpUser", DEFAULT_MAILBOX); }
-    public void smtpUser(String v) { prefs.put("smtpUser", v.trim()); }
-
-    public String fromAddress() { return prefs.get("fromAddress", DEFAULT_MAILBOX); }
-    public void fromAddress(String v) { prefs.put("fromAddress", v.trim()); }
-
-    public String fromName() { return prefs.get("fromName", ""); }
-    public void fromName(String v) { prefs.put("fromName", v.trim()); }
 
     /** Beim Start automatisch auf GitHub nach einer neuen Version suchen. */
     public boolean checkUpdates() { return prefs.getBoolean("checkUpdates", true); }
@@ -100,12 +61,16 @@ public final class Settings {
     public String exportDir() { return prefs.get("exportDir", System.getProperty("user.home")); }
     public void exportDir(String v) { prefs.put("exportDir", v); }
 
-    public String mailSubject() { return prefs.get("mailSubject", DEFAULT_SUBJECT); }
-    public void mailSubject(String v) { prefs.put("mailSubject", v); }
+    /** Empfänger der Anwesenheitsliste (optional, wird im Mail-Entwurf vorbelegt). */
+    public String reportRecipient() { return prefs.get("reportRecipient", ""); }
+    public void reportRecipient(String v) { prefs.put("reportRecipient", v.trim()); }
+
+    public String reportSubject() { return prefs.get("reportSubject", DEFAULT_REPORT_SUBJECT); }
+    public void reportSubject(String v) { prefs.put("reportSubject", v); }
 
     /** Preferences-Werte sind auf 8 KB begrenzt; das reicht für einen Mailtext. */
-    public String mailBody() { return prefs.get("mailBody", DEFAULT_BODY); }
-    public void mailBody(String v) { prefs.put("mailBody", v.length() > 8000 ? v.substring(0, 8000) : v); }
+    public String reportBody() { return prefs.get("reportBody", DEFAULT_REPORT_BODY); }
+    public void reportBody(String v) { prefs.put("reportBody", v.length() > 8000 ? v.substring(0, 8000) : v); }
 
     public void flush() {
         try {
