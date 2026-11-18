@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- NetBeans: eigene Aktionen, Rechtsklick auf das Projekt → Run Maven -->
+<actions>
+    <action>
+        <actionName>CUSTOM-dmg</actionName>
+        <displayName>macOS-Installer (dmg) erstellen</displayName>
+        <goals>
+            <goal>clean</goal>
+            <goal>package</goal>
+        </goals>
+        <activatedProfiles>
+            <activatedProfile>dmg</activatedProfile>
+        </activatedProfiles>
+    </action>
+</actions>
