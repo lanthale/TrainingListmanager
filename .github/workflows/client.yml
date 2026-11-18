@@ -78,23 +78,35 @@ jobs:
         run: mvn -B -f client/pom.xml package
 
       - name: Installer erzeugen (jpackage)
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
         run: |
           mkdir -p dist
-          jpackage \
-            --type ${{ matrix.type }} \
-            --name TrainingListmanager \
-            --app-version ${{ steps.version.outputs.version }} \
-            --vendor "mind-architects" \
-            --description "Trainings verwalten und Einladungen versenden" \
-            --input client/target/libs \
-            --main-jar training-listmanager.jar \
-            --main-class de.mindarchitects.tlm.Launcher \
-            --add-modules java.base,java.desktop,java.logging,java.naming,java.net.http,java.prefs,java.security.sasl,java.sql,java.xml,jdk.net,jdk.security.auth,jdk.unsupported,jdk.localedata,jdk.charsets,javafx.base,javafx.graphics,javafx.controls \
-            --jlink-options "--strip-debug --no-man-pages --no-header-files" \
-            --java-options "-Dfile.encoding=UTF-8 --enable-native-access=ALL-UNNAMED,javafx.graphics" \
-            --java-options "-Dapp.version=${{ steps.version.outputs.version }}" \
-            --dest dist \
-            ${{ matrix.extra }}
+          COMMON=(
+            --name TrainingListmanager
+            --app-version "$VERSION"
+            --vendor "mind-architects"
+            --description "Trainings verwalten und QR-Codes zur Registrierung erzeugen"
+            --input client/target/libs
+            --main-jar training-listmanager.jar
+            --main-class de.mindarchitects.tlm.Launcher
+            --add-modules java.base,java.desktop,java.logging,java.naming,java.net.http,java.prefs,java.security.sasl,java.sql,java.xml,jdk.net,jdk.security.auth,jdk.unsupported,jdk.localedata,jdk.charsets,javafx.base,javafx.graphics,javafx.controls
+            --jlink-options "--strip-debug --no-man-pages --no-header-files"
+            --java-options "-Dfile.encoding=UTF-8 --enable-native-access=ALL-UNNAMED,javafx.graphics"
+            --java-options "-Dapp.version=$VERSION"
+          )
+          if [ "${{ matrix.type }}" = dmg ]; then
+            # macOS: erst die App bauen, dann den Hinweis für die Mail-Steuerung (AppleScript) in die
+            # Info.plist eintragen – ohne ihn verweigert macOS die Automation von Apple Mail.
+            jpackage --type app-image "${COMMON[@]}" --dest build ${{ matrix.extra }}
+            APP=build/TrainingListmanager.app
+            /usr/libexec/PlistBuddy -c "Add :NSAppleEventsUsageDescription string 'TrainingListmanager öffnet die Anwesenheitsliste als Entwurf in Apple Mail.'" "$APP/Contents/Info.plist"
+            codesign --force --deep --sign - "$APP"
+            jpackage --type dmg --app-image "$APP" --name TrainingListmanager --app-version "$VERSION" \
+              --vendor "mind-architects" --dest dist
+          else
+            jpackage --type ${{ matrix.type }} "${COMMON[@]}" --dest dist ${{ matrix.extra }}
+          fi
           ls -la dist
 
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

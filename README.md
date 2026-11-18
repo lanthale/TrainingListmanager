@@ -1,9 +1,9 @@
 # TrainingListmanager
 
-Trainings verwalten und Teilnehmer per persönlichem QR-Code registrieren lassen.
+Trainings verwalten und Teilnehmer per QR-Code registrieren lassen.
 
-- **Registrierungsseite (PHP):** Teilnehmer öffnen ihren persönlichen Link (QR-Code aus der Einladungs-E-Mail) und registrieren sich mit Vorname, Nachname, Job-Position und Händler. Ohne gültigen QR-Code ist keine Registrierung möglich, und jeder Code funktioniert nur einmal.
-- **Desktop-Client (JavaFX):** Trainings und Registrierungen einsehen, neue Trainings anlegen und Einladungs-Mails mit QR-Code versenden. Der Client spricht über eine JSON-API (`api.php`) mit dem Server, weil die IONOS-Datenbank von außen nicht erreichbar ist.
+- **Registrierungsseite (PHP):** Teilnehmer scannen den QR-Code des Trainings mit dem Handy und registrieren sich mit Vorname, Nachname, Job-Position und Händler. Dazu müssen sie dem Datenschutzhinweis zustimmen (DSGVO). Ohne gültigen QR-Code ist keine Registrierung möglich.
+- **Desktop-Client (JavaFX):** Trainings anlegen, den QR-Code als PNG exportieren, Registrierungen einsehen, die Anwesenheitsliste als Excel per Mail-Entwurf weiterleiten und das Training danach mit allen Teilnehmerdaten löschen. Der Client spricht über eine JSON-API (`api.php`) mit dem Server, weil die IONOS-Datenbank von außen nicht erreichbar ist.
 
 ## Aufbau
 
@@ -14,7 +14,7 @@ sql/schema.sql               Tabellen: trainings, invitations, registrations
 sql/migrations/              Änderungen für bereits bestehende Datenbanken
 public/                      Webroot: index.php (Registrierung), api.php (für den Client), style.css
 src/                         DB-Verbindung, Einladungs- und API-Logik
-tools/create_invitation.php  CLI: Test-Einladung anlegen, gibt QR-URL aus
+tools/create_invitation.php  CLI: neuen QR-Code für ein Training anlegen, gibt die URL aus
 client/                      JavaFX-Desktop-Client (Maven)
 .github/workflows/client.yml baut Installer für macOS, Windows und Linux
 ```
@@ -25,6 +25,7 @@ client/                      JavaFX-Desktop-Client (Maven)
    Wurde das Schema schon früher eingespielt, stattdessen die noch fehlenden Migrationen aus `sql/migrations/` der Reihe nach ausführen:
    - `002_invitations_sent_at.sql`
    - `003_invitation_expiry.sql`
+   - `004_training_code_consent.sql` (QR-Code pro Training, Einwilligung speichern)
 2. **Dateien hochladen:** den Projektordner ohne `client/` hochladen, auch die `.htaccess`-Dateien.
    Im FTP-Programm dafür versteckte Dateien einblenden.
 3. **Webroot:** In der IONOS-Domainverwaltung zeigt `trainings.mind-architects.de` auf den Unterordner `public`.
@@ -81,22 +82,25 @@ Mit **Nach Updates suchen** in der Werkzeugleiste kann man jederzeit selbst prü
 1. *Einstellungen* öffnen und **Schlüssel erzeugen** klicken.
    Der Client zeigt eine Zeile `'api_key_hash' => '…',`. Diese Zeile in `config.php` auf dem Server eintragen.
    Der Schlüssel selbst bleibt im Schlüsselbund des Rechners, auf dem Server liegt nur sein Hash.
-2. SMTP prüfen und das Passwort eintragen. Vorbelegt sind:
-   - Server `smtps.udag.de`, Port 465 mit SSL/TLS (alternativ Port 587 mit STARTTLS)
-   - Benutzer und Absenderadresse `office@mind-architects.de`
-   - Nur das **Passwort** und optional den Absendernamen tragen Sie selbst ein.
-3. Die Verbindung mit **API testen** und **Test-Mail senden** prüfen.
+2. Die Verbindung mit **API testen** prüfen.
+3. Optional unter *Anwesenheitsliste per Mail weiterleiten* den Empfänger und die Mail-Vorlage anpassen.
 
-API-Schlüssel und SMTP-Passwort liegen im Schlüsselbund des Betriebssystems: macOS-Keychain, Windows-Anmeldeinformationsverwaltung oder Linux Secret Service. Alle anderen Einstellungen speichert Java in den Benutzer-Einstellungen.
+Der API-Schlüssel liegt im Schlüsselbund des Betriebssystems: macOS-Keychain, Windows-Anmeldeinformationsverwaltung oder Linux Secret Service. Alle anderen Einstellungen speichert Java in den Benutzer-Einstellungen.
 
 ### Bedienung
-- **Neues Training:** Titel, Datum und Uhrzeit, Ort und Beschreibung eingeben und die E-Mail-Adressen einfügen. Die Adressen dürfen eine pro Zeile oder durch Komma oder Semikolon getrennt sein, auch im Format `Name <mail>`. Dann Betreff und Mailtext prüfen und *Anlegen & senden* klicken.
-  Platzhalter im Mailtext: `{titel}`, `{datum}`, `{ort}`, `{link}` und `{qr}`. `{qr}` steht für das QR-Bild. Fehlt dieser Platzhalter, hängt der Client das QR-Bild unten an.
-- **Registrierungen:** Wer sich registriert hat, steht mit Vorname, Nachname, Job-Position, Händler, E-Mail und Zeitpunkt in der Liste.
-- **Einladungen:** Hier sehen Sie, wann jede Einladung gesendet wurde und ob sich der Teilnehmer registriert hat. Zwei Aktionen sind möglich:
-  - *Weitere einladen …* fügt neue Adressen zum Training hinzu.
-  - *Erneut senden …* erzeugt für die gewählten, noch unbenutzten Einladungen einen neuen Link. Der alte Link wird dabei ungültig.
-- **Excel-Export …:** speichert eine `.xlsx` mit den Blättern „Teilnehmer“ (alle Registrierungen, sortiert nach Nachname, mit Filter) und „Einladungen“ (Status jeder Einladung). Die Datei wird danach geöffnet.
+1. **Neues Training:** Titel, Datum und Uhrzeit, Ort und Beschreibung eingeben und *Anlegen* klicken. Der Server erzeugt dabei den QR-Code.
+2. **QR-Code:** Im Tab *QR-Code* mit **Als PNG exportieren …** ein Bild mit Titel, Datum und QR-Code speichern, zum Ausdrucken oder für den Beamer. Alle Teilnehmer scannen denselben Code.
+   Der Code gilt bis zum Ende des Tages nach Trainingsbeginn, ohne Trainingsdatum 90 Tage. **Neuen QR-Code erzeugen …** macht den bisherigen sofort ungültig, z. B. wenn ein Foto des Codes weitergegeben wurde.
+3. **Registrierungen:** Wer sich registriert hat, steht mit Vorname, Nachname, Job-Position, Händler und Zeitpunkt in der Liste.
+4. **Per Mail weiterleiten …:** erzeugt die Anwesenheitsliste als Excel und öffnet sie als **Entwurf** im Mailprogramm. Nichts wird automatisch gesendet: Empfänger und Text lassen sich dort noch ändern.
+   - macOS: Apple Mail. Beim ersten Mal fragt macOS, ob TrainingListmanager „Mail“ steuern darf. Ohne diese Erlaubnis öffnet Mail nur eine neue Nachricht mit der Anlage, der Text liegt dann in der Zwischenablage. Die Erlaubnis lässt sich unter *Systemeinstellungen → Datenschutz & Sicherheit → Automation* nachholen.
+   - Windows: Die Mail öffnet sich als Entwurf in Outlook (klassisch).
+   - Linux: über `xdg-email`, z. B. in Thunderbird.
+
+   Platzhalter in Betreff und Text (Einstellungen): `{titel}`, `{datum}`, `{ort}`, `{anzahl}`.
+5. **Training löschen …:** löscht das Training mit allen Registrierungen und QR-Codes endgültig vom Server. Das ist der Schritt „nach der Weiterleitung gelöscht“ aus dem Datenschutzhinweis.
+
+- **Excel-Export …:** speichert dieselbe Liste als `.xlsx` (sortiert nach Nachname, mit Filter und dem Zeitpunkt der Einwilligung) und öffnet sie.
 - **Registrierung offen:** Ist der Haken entfernt, ist keine Registrierung mehr möglich, auch nicht mit gültigem Code.
 
 ### Entwickeln
@@ -106,6 +110,14 @@ JDK 27 und Maven werden benötigt.
 mvn -f client/pom.xml javafx:run      # starten
 mvn -f client/pom.xml package         # Jars nach client/target/libs
 ```
+
+**dmg lokal bauen (macOS):** In NetBeans Rechtsklick auf das Projekt → *Run Maven* → **macOS-Installer (dmg) erstellen**, oder:
+
+```
+mvn -f client/pom.xml -Pdmg clean package
+```
+
+Das Ergebnis liegt in `client/target/dist/TrainingListmanager-<version>.dmg`. Das lokale JDK braucht kein eingebautes JavaFX: Das Profil `dmg` packt die JavaFX-Jars mit ein, das Skript `client/packaging/build-dmg.sh` baut wie der GitHub-Workflow. Gebaut wird in einem lokalen Temp-Ordner, weil `codesign` auf Netzwerkfreigaben nicht signieren kann. Für Releases bleibt der GitHub-Build maßgeblich.
 
 **App-Icon ändern:** Die Zeichnung steht in `client/packaging/IconGen.java`. Nach einer Änderung neu erzeugen (macOS, wegen `iconutil`):
 
@@ -121,22 +133,22 @@ Jede Anfrage braucht den Header `X-Api-Key: <schlüssel>`. Die Aktion wird über
 | Aktion | Methode | Parameter / Body | Antwort |
 |---|---|---|---|
 | `ping` | GET | – | `{ok}` |
-| `trainings` | GET | – | Liste mit `invited`, `sent`, `registered` |
-| `training` | GET | `id` | Training, Einladungen und Registrierungen |
-| `create_training` | POST | `title`, `description`, `starts_at` (`YYYY-MM-DD HH:MM:SS`), `location` | `{id}` |
+| `trainings` | GET | – | Liste mit `registered` |
+| `training` | GET | `id` | Training, aktueller QR-Code (`code`) und Registrierungen |
+| `create_training` | POST | `title`, `description`, `starts_at` (`YYYY-MM-DD HH:MM:SS`), `location` | `{id, code}` |
 | `set_active` | POST | `id`, `active` | `{ok}` |
-| `create_invitations` | POST | `training_id`, `emails[]` | `{created: [{id,email,url}], skipped}` |
-| `renew_invitation` | POST | `id` (unbenutzt) | `{id,email,url}` mit neuem Token |
-| `mark_sent` | POST | `ids[]` | `{updated}` |
+| `create_code` | POST | `training_id` | `{code}`; der bisherige Code wird ungültig |
+| `delete_training` | POST | `id` | `{ok}`; löscht Training, Codes und Registrierungen |
 
-Die Tokens erzeugt der Server. In der Datenbank liegt nur ihr SHA-256-Hash. Den Klartext-Token enthält einzig die `url` in der Antwort, und er kommt nur in den QR-Code der Mail.
+`code` ist `{url, expires_at, created_at}`. Die Tokens erzeugt der Server. Gesucht wird über den SHA-256-Hash; der Klartext steht zusätzlich in der Datenbank, damit jeder Client das PNG jederzeit neu exportieren kann. Der Code ist ohnehin zum Aushängen gedacht und erlaubt nur Registrierungen für dieses eine Training.
 
 ## Sicherheit
 
-- Eine Registrierung ist nur mit gültigem, unbenutztem und nicht abgelaufenem Token möglich, und das Training muss aktiv sein.
-- Die Registrierung läuft in einer Transaktion mit `SELECT … FOR UPDATE`. Zusätzlich verhindert ein `UNIQUE`-Index auf `registrations.invitation_id` Doppel-Einträge.
+- Eine Registrierung ist nur mit gültigem, nicht abgelaufenem QR-Code möglich, und das Training muss aktiv sein. Pro Code sind höchstens 500 Registrierungen möglich.
+- Die Registrierung läuft in einer Transaktion mit `SELECT … FOR UPDATE`.
+- **Datenschutz (DSGVO):** Die Seite zeigt vor dem Absenden einen Datenschutzhinweis. Ohne Häkchen bei der Einwilligung wird nichts gespeichert; der Zeitpunkt der Einwilligung steht in `registrations.consent_at` und in der Excel-Liste. Nach der Weiterleitung löscht *Training löschen …* alle Teilnehmerdaten.
 - Die Seite nutzt CSRF-Schutz, Prepared Statements und HTML-Escaping. DB-Fehler gehen ins Server-Log und werden nicht angezeigt.
-- **Ablauf von Einladungen:** Einladungen laufen automatisch am Ende des Tages nach Trainingsbeginn ab, ohne Trainingsdatum nach 90 Tagen. Beim erneuten Senden wird das Ablaufdatum neu gesetzt. Der Client zeigt es in der Spalte „Gültig bis“.
+- **Ablauf der QR-Codes:** Ein Code läuft automatisch am Ende des Tages nach Trainingsbeginn ab, ohne Trainingsdatum nach 90 Tagen. Der Client zeigt das Ablaufdatum im Tab *QR-Code*.
 - **Server-Header:** Die Seite sendet HSTS, eine strikte Content-Security-Policy (nur eigene Ressourcen, kein Einbetten), `nosniff` und `Referrer-Policy: no-referrer`.
 - **API-Schlüssel:** Die API ist gesperrt, solange in `config.php` kein `api_key_hash` steht. Der Schlüssel hat 256 Bit. Ein neu erzeugter Schlüssel macht den alten ungültig, sobald sein Hash in `config.php` steht.
   **Geht ein Rechner mit dem Client verloren:** sofort einen neuen Schlüssel erzeugen und den Hash in `config.php` ersetzen.

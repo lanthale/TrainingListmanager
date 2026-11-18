@@ -15,13 +15,15 @@ CREATE TABLE IF NOT EXISTS trainings (
     PRIMARY KEY (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Persönliche Einladungen (eine pro Teilnehmer, ein QR-Code pro Einladung).
--- Im QR-Code steht der Klartext-Token, hier nur dessen SHA-256-Hash (hex).
+-- QR-Codes: einer pro Training (email NULL, mehrfach verwendbar, token = Klartext für den
+-- PNG-Export im Client). Gesucht wird über token_hash (SHA-256, hex).
+-- Ältere persönliche Einladungen (email gesetzt, token NULL) gelten nur für eine Registrierung.
 CREATE TABLE IF NOT EXISTS invitations (
     id          INT UNSIGNED NOT NULL AUTO_INCREMENT,
     training_id INT UNSIGNED NOT NULL,
     email       VARCHAR(254) NULL,
     token_hash  CHAR(64) NOT NULL,
+    token       CHAR(64) NULL,
     sent_at     DATETIME NULL,
     used_at     DATETIME NULL,
     expires_at  DATETIME NULL,
@@ -33,7 +35,7 @@ CREATE TABLE IF NOT EXISTS invitations (
         REFERENCES trainings (id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Registrierungen der Teilnehmer (max. eine pro Einladung).
+-- Registrierungen der Teilnehmer. consent_at = Zeitpunkt der Einwilligung (DSGVO).
 CREATE TABLE IF NOT EXISTS registrations (
     id            INT UNSIGNED NOT NULL AUTO_INCREMENT,
     training_id   INT UNSIGNED NOT NULL,
@@ -42,9 +44,10 @@ CREATE TABLE IF NOT EXISTS registrations (
     last_name     VARCHAR(100) NOT NULL,
     job_position  VARCHAR(150) NOT NULL,
     dealer        VARCHAR(200) NOT NULL,
+    consent_at    DATETIME NULL,
     created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (id),
-    UNIQUE KEY uq_registrations_invitation (invitation_id),
+    KEY idx_registrations_invitation (invitation_id),
     KEY idx_registrations_training (training_id),
     CONSTRAINT fk_registrations_training FOREIGN KEY (training_id)
         REFERENCES trainings (id) ON DELETE CASCADE,

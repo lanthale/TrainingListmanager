@@ -45,6 +45,45 @@ function invitation_expiry(?string $startsAt): string
     return (new DateTime())->modify('+' . INVITATION_DAYS_WITHOUT_DATE . ' days')->format('Y-m-d H:i:s');
 }
 
+/** Obergrenze an Registrierungen pro QR-Code (Schutz vor Missbrauch eines geteilten Codes). */
+const MAX_REGISTRATIONS_PER_CODE = 500;
+
+/**
+ * Legt einen neuen QR-Code für ein Training an. Bisherige Codes des Trainings werden
+ * sofort ungültig (Registrierungen bleiben erhalten). Gibt ['url', 'expires_at', 'created_at'] zurück.
+ * Muss innerhalb einer Transaktion aufgerufen werden.
+ */
+function create_training_code(int $trainingId, ?string $startsAt): array
+{
+    $pdo = db();
+    $pdo->prepare(
+        'UPDATE invitations SET token = NULL, expires_at = NOW()
+          WHERE training_id = ? AND email IS NULL AND (expires_at IS NULL OR expires_at > NOW())'
+    )->execute([$trainingId]);
+    $token = create_invitation_token();
+    $expiresAt = invitation_expiry($startsAt);
+    $pdo->prepare(
+        'INSERT INTO invitations (training_id, email, token_hash, token, expires_at) VALUES (?, NULL, ?, ?, ?)'
+    )->execute([$trainingId, token_hash($token), $token, $expiresAt]);
+    return current_training_code($trainingId);
+}
+
+/** Aktueller QR-Code eines Trainings oder null. */
+function current_training_code(int $trainingId): ?array
+{
+    $stmt = db()->prepare(
+        'SELECT token, expires_at, created_at FROM invitations
+          WHERE training_id = ? AND email IS NULL AND token IS NOT NULL
+          ORDER BY id DESC LIMIT 1'
+    );
+    $stmt->execute([$trainingId]);
+    $row = $stmt->fetch();
+    if (!$row) {
+        return null;
+    }
+    return ['url' => invitation_url($row['token']), 'expires_at' => $row['expires_at'], 'created_at' => $row['created_at']];
+}
+
 /** Registrierungs-URL für einen Klartext-Token. */
 function invitation_url(string $token): string
 {
@@ -54,15 +93,16 @@ function invitation_url(string $token): string
 
 /**
  * Prüft eine Einladung. Gibt ['status' => ..., 'invitation' => row|null] zurück.
- * Status: ok | invalid | used | expired | inactive
+ * Status: ok | invalid | used | full | expired | inactive
  */
 function check_invitation(string $token, bool $forUpdate = false): array
 {
     if (!is_valid_token_format($token)) {
         return ['status' => 'invalid', 'invitation' => null];
     }
-    $sql = 'SELECT i.id, i.training_id, i.used_at,
-                   (i.expires_at IS NOT NULL AND i.expires_at < NOW()) AS expired,
+    $sql = 'SELECT i.id, i.training_id, i.used_at, i.email,
+                   (SELECT COUNT(*) FROM registrations r WHERE r.invitation_id = i.id) AS registrations,
+                   (i.expires_at IS NOT NULL AND i.expires_at <= NOW()) AS expired,
                    t.title, t.description, t.starts_at, t.location, t.active
               FROM invitations i
               JOIN trainings t ON t.id = i.training_id
@@ -77,8 +117,12 @@ function check_invitation(string $token, bool $forUpdate = false): array
     if (!$row) {
         return ['status' => 'invalid', 'invitation' => null];
     }
-    if ($row['used_at'] !== null) {
+    // Persönliche Einladung (ältere Version): nur eine Registrierung
+    if ($row['email'] !== null && $row['used_at'] !== null) {
         return ['status' => 'used', 'invitation' => $row];
+    }
+    if ((int)$row['registrations'] >= MAX_REGISTRATIONS_PER_CODE) {
+        return ['status' => 'full', 'invitation' => $row];
     }
     if ((int)$row['expired'] === 1) {
         return ['status' => 'expired', 'invitation' => $row];
@@ -107,12 +151,15 @@ function validate_registration(array $input): array
         }
         $data[$key] = $value;
     }
+    if (empty($input['consent'])) {
+        $errors['consent'] = 'Bitte stimmen Sie der Verarbeitung Ihrer Daten zu, um sich zu registrieren.';
+    }
     return [$data, $errors];
 }
 
 /**
- * Speichert die Registrierung atomar und markiert die Einladung als benutzt.
- * Gibt den Status zurück (ok | invalid | used | expired | inactive).
+ * Speichert die Registrierung samt Zeitpunkt der Einwilligung atomar.
+ * Gibt den Status zurück (ok | invalid | used | full | expired | inactive).
  */
 function register_with_invitation(string $token, array $data): string
 {
@@ -128,8 +175,8 @@ function register_with_invitation(string $token, array $data): string
 
         $pdo->prepare(
             'INSERT INTO registrations
-                (training_id, invitation_id, first_name, last_name, job_position, dealer)
-             VALUES (?, ?, ?, ?, ?, ?)'
+                (training_id, invitation_id, first_name, last_name, job_position, dealer, consent_at)
+             VALUES (?, ?, ?, ?, ?, ?, NOW())'
         )->execute([
             $inv['training_id'],
             $inv['id'],
@@ -139,7 +186,7 @@ function register_with_invitation(string $token, array $data): string
             $data['dealer'],
         ]);
 
-        $pdo->prepare('UPDATE invitations SET used_at = NOW() WHERE id = ?')
+        $pdo->prepare('UPDATE invitations SET used_at = COALESCE(used_at, NOW()) WHERE id = ?')
             ->execute([$inv['id']]);
 
         $pdo->commit();

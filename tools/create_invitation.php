@@ -2,12 +2,10 @@
 declare(strict_types=1);
 
 /**
- * Referenz/Test: legt eine persönliche Einladung an und gibt die QR-URL aus.
+ * Referenz/Test: legt einen neuen QR-Code für ein Training an und gibt die URL aus.
+ * Ein bisheriger Code des Trainings wird dabei ungültig.
  *
- *   php tools/create_invitation.php <training_id> [email] [gueltig_tage]
- *
- * So muss es auch der spätere Client machen: Token zufällig erzeugen,
- * nur den SHA-256-Hash speichern, den Klartext-Token in die URL/den QR-Code.
+ *   php tools/create_invitation.php <training_id>
  */
 
 if (PHP_SAPI !== 'cli') {
@@ -18,20 +16,18 @@ if (PHP_SAPI !== 'cli') {
 require_once dirname(__DIR__) . '/src/invitation.php';
 
 $trainingId = (int)($argv[1] ?? 0);
-$email      = $argv[2] ?? null;
-$days       = isset($argv[3]) ? (int)$argv[3] : null;
-
 if ($trainingId <= 0) {
-    fwrite(STDERR, "Aufruf: php tools/create_invitation.php <training_id> [email] [gueltig_tage]\n");
+    fwrite(STDERR, "Aufruf: php tools/create_invitation.php <training_id>\n");
     exit(1);
 }
 
-$token = create_invitation_token();
+$stmt = db()->prepare('SELECT starts_at FROM trainings WHERE id = ?');
+$stmt->execute([$trainingId]);
+$training = $stmt->fetch();
+if (!$training) {
+    fwrite(STDERR, "Training $trainingId nicht gefunden.\n");
+    exit(1);
+}
 
-$stmt = db()->prepare(
-    'INSERT INTO invitations (training_id, email, token_hash, expires_at)
-     VALUES (?, ?, ?, IF(? IS NULL, NULL, NOW() + INTERVAL ? DAY))'
-);
-$stmt->execute([$trainingId, $email, token_hash($token), $days, $days]);
-
-echo invitation_url($token) . PHP_EOL;
+$code = create_training_code($trainingId, $training['starts_at']);
+echo $code['url'] . PHP_EOL . 'gültig bis ' . $code['expires_at'] . PHP_EOL;

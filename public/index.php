@@ -34,10 +34,11 @@ function format_date(?string $dt): string
 }
 
 const STATUS_MESSAGES = [
-    'missing'  => 'Bitte verwenden Sie den QR-Code aus Ihrer Einladungs-E-Mail, um sich zu registrieren.',
-    'invalid'  => 'Dieser Registrierungslink ist ungültig. Bitte verwenden Sie den QR-Code aus Ihrer Einladungs-E-Mail.',
+    'missing'  => 'Bitte scannen Sie den QR-Code des Trainings, um sich zu registrieren.',
+    'invalid'  => 'Dieser Registrierungslink ist ungültig. Bitte scannen Sie den aktuellen QR-Code des Trainings.',
     'used'     => 'Mit dieser Einladung wurde bereits eine Registrierung durchgeführt.',
-    'expired'  => 'Diese Einladung ist abgelaufen.',
+    'full'     => 'Für dieses Training sind keine weiteren Registrierungen möglich.',
+    'expired'  => 'Dieser QR-Code ist abgelaufen.',
     'inactive' => 'Für dieses Training ist derzeit keine Registrierung möglich.',
     'error'    => 'Es ist ein technischer Fehler aufgetreten. Bitte versuchen Sie es später erneut.',
     'csrf'     => 'Die Sitzung ist abgelaufen. Bitte laden Sie die Seite neu und versuchen Sie es erneut.',
@@ -51,6 +52,7 @@ $view    = 'form';   // form | message | success
 $message = '';
 $errors  = [];
 $values  = array_fill_keys(array_keys(REGISTRATION_FIELDS), '');
+$consent = false;
 $invitation = null;
 
 try {
@@ -72,6 +74,7 @@ try {
             } else {
                 $invitation = $check['invitation'];
                 [$values, $errors] = validate_registration($_POST);
+                $consent = !empty($_POST['consent']);
                 if (!$errors) {
                     $status = register_with_invitation($token, $values);
                     if ($status === 'ok') {
@@ -164,6 +167,30 @@ try {
                 <p class="error"><?= h($errors[$key]) ?></p>
             <?php endif; ?>
         <?php endforeach; ?>
+
+        <section class="privacy" aria-labelledby="privacy-title">
+            <h3 id="privacy-title">Datenschutzhinweis</h3>
+            <p>Verantwortlich ist MINDArchitects (Kontaktdaten siehe
+                <a href="https://www.mind-architects.de/index.php/de/impressum.html" rel="noopener">Impressum</a>).
+                Wir verarbeiten Ihren Vor- und Nachnamen, Ihre Job-Position und Ihren Händler
+                auf Grundlage Ihrer Einwilligung (Art. 6 Abs. 1 lit. a DSGVO).</p>
+            <p><strong>Die Daten werden nur zum Zweck der Anwesenheitsdokumentation gespeichert und nach
+                der Weiterleitung gelöscht.</strong></p>
+            <p>Sie können Ihre Einwilligung jederzeit mit Wirkung für die Zukunft widerrufen. Sie haben das Recht
+                auf Auskunft, Berichtigung, Löschung und Einschränkung der Verarbeitung sowie auf Beschwerde bei
+                einer Datenschutz-Aufsichtsbehörde. Mehr dazu in unserer
+                <a href="https://www.mind-architects.de/index.php/de/datenschutz.html" rel="noopener">Datenschutzerklärung</a>.</p>
+        </section>
+
+        <label class="consent">
+            <input type="checkbox" name="consent" value="1" required
+                   <?= $consent ? 'checked' : '' ?> <?= isset($errors['consent']) ? 'aria-invalid="true"' : '' ?>>
+            <span>Ich habe den Datenschutzhinweis gelesen und willige ein, dass meine Angaben zum Zweck der
+                Anwesenheitsdokumentation gespeichert und verarbeitet werden.</span>
+        </label>
+        <?php if (isset($errors['consent'])): ?>
+            <p class="error"><?= h($errors['consent']) ?></p>
+        <?php endif; ?>
 
         <button type="submit">Registrieren</button>
     </form>

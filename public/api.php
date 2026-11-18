@@ -32,7 +32,7 @@ foreach (array('pdo_mysql', 'mbstring') as $ext) {
 }
 
 require_once dirname(__DIR__) . '/src/api.php';
-if (!function_exists('create_invitation_token')) {
+if (!function_exists('create_training_code')) {
     api_fail_early('src/invitation.php ist veraltet. Bitte die aktuelle Version hochladen.');
 }
 
@@ -51,8 +51,6 @@ try {
             require_method('GET');
             $rows = $pdo->query(
                 'SELECT t.id, t.title, t.description, t.starts_at, t.location, t.active, t.created_at,
-                        (SELECT COUNT(*) FROM invitations i WHERE i.training_id = t.id) AS invited,
-                        (SELECT COUNT(*) FROM invitations i WHERE i.training_id = t.id AND i.sent_at IS NOT NULL) AS sent,
                         (SELECT COUNT(*) FROM registrations r WHERE r.training_id = t.id) AS registered
                    FROM trainings t
                ORDER BY t.starts_at IS NULL, t.starts_at DESC, t.id DESC'
@@ -65,40 +63,36 @@ try {
             $training = find_training($id);
 
             $stmt = $pdo->prepare(
-                'SELECT id, email, sent_at, used_at, expires_at, created_at
-                   FROM invitations WHERE training_id = ? ORDER BY email'
-            );
-            $stmt->execute([$id]);
-            $invitations = $stmt->fetchAll();
-
-            $stmt = $pdo->prepare(
-                'SELECT r.id, r.invitation_id, r.first_name, r.last_name, r.job_position, r.dealer,
-                        r.created_at, i.email
-                   FROM registrations r JOIN invitations i ON i.id = r.invitation_id
-                  WHERE r.training_id = ? ORDER BY r.last_name, r.first_name'
+                'SELECT id, first_name, last_name, job_position, dealer, consent_at, created_at
+                   FROM registrations WHERE training_id = ? ORDER BY last_name, first_name'
             );
             $stmt->execute([$id]);
             $registrations = $stmt->fetchAll();
 
             json_out([
                 'training'      => normalize_training($training),
-                'invitations'   => array_map(fn($r) => ['id' => (int)$r['id']] + $r, $invitations),
-                'registrations' => array_map(fn($r) => ['id' => (int)$r['id'], 'invitation_id' => (int)$r['invitation_id']] + $r, $registrations),
+                'code'          => current_training_code($id),
+                'registrations' => array_map(fn($r) => ['id' => (int)$r['id']] + $r, $registrations),
             ]);
 
         case 'create_training':
             require_method('POST');
             $in = json_body();
+            $startsAt = input_datetime($in, 'starts_at');
+            $pdo->beginTransaction();
             $stmt = $pdo->prepare(
                 'INSERT INTO trainings (title, description, starts_at, location, active) VALUES (?, ?, ?, ?, 1)'
             );
             $stmt->execute([
                 input_string($in, 'title', 200, true),
                 input_string($in, 'description', 5000),
-                input_datetime($in, 'starts_at'),
+                $startsAt,
                 input_string($in, 'location', 200),
             ]);
-            json_out(['id' => (int)$pdo->lastInsertId()], 201);
+            $id = (int)$pdo->lastInsertId();
+            $code = create_training_code($id, $startsAt);
+            $pdo->commit();
+            json_out(['id' => $id, 'code' => $code], 201);
 
         case 'set_active':
             require_method('POST');
@@ -109,88 +103,25 @@ try {
                 ->execute([!empty($in['active']) ? 1 : 0, $id]);
             json_out(['ok' => true]);
 
-        case 'create_invitations':
+        // Neuer QR-Code für ein Training; der bisherige wird ungültig.
+        case 'create_code':
             require_method('POST');
             $in = json_body();
-            $trainingId = input_int($in, 'training_id');
-            $training = find_training($trainingId);
-            $expiresAt = invitation_expiry($training['starts_at']);
-            $emails = $in['emails'] ?? null;
-            if (!is_array($emails) || !$emails) {
-                throw new ApiError("Feld 'emails' fehlt");
-            }
-            if (count($emails) > 1000) {
-                throw new ApiError('Zu viele Adressen (max. 1000)');
-            }
-
-            $existing = $pdo->prepare('SELECT LOWER(email) FROM invitations WHERE training_id = ?');
-            $existing->execute([$trainingId]);
-            $known = array_fill_keys($existing->fetchAll(PDO::FETCH_COLUMN), true);
-
-            $insert = $pdo->prepare(
-                'INSERT INTO invitations (training_id, email, token_hash, expires_at) VALUES (?, ?, ?, ?)'
-            );
-            $created = [];
-            $skipped = [];
+            $id = input_int($in, 'training_id');
+            $training = find_training($id);
             $pdo->beginTransaction();
-            foreach ($emails as $email) {
-                $email = trim((string)$email);
-                $lower = mb_strtolower($email);
-                if (!filter_var($email, FILTER_VALIDATE_EMAIL) || mb_strlen($email) > 254) {
-                    $skipped[] = ['email' => $email, 'reason' => 'ungültig'];
-                    continue;
-                }
-                if (isset($known[$lower])) {
-                    $skipped[] = ['email' => $email, 'reason' => 'bereits eingeladen'];
-                    continue;
-                }
-                $token = create_invitation_token();
-                $insert->execute([$trainingId, $email, token_hash($token), $expiresAt]);
-                $known[$lower] = true;
-                $created[] = [
-                    'id'    => (int)$pdo->lastInsertId(),
-                    'email' => $email,
-                    'url'   => invitation_url($token),
-                ];
-            }
+            $code = create_training_code($id, $training['starts_at']);
             $pdo->commit();
-            json_out(['created' => $created, 'skipped' => $skipped], 201);
+            json_out(['code' => $code], 201);
 
-        case 'renew_invitation':
+        // Training mit allen QR-Codes und Registrierungen endgültig löschen (DSGVO).
+        case 'delete_training':
             require_method('POST');
             $in = json_body();
             $id = input_int($in, 'id');
-            $stmt = $pdo->prepare(
-                'SELECT i.id, i.email, i.used_at, t.starts_at
-                   FROM invitations i JOIN trainings t ON t.id = i.training_id WHERE i.id = ?'
-            );
-            $stmt->execute([$id]);
-            $inv = $stmt->fetch();
-            if (!$inv) {
-                throw new ApiError('Einladung nicht gefunden', 404);
-            }
-            if ($inv['used_at'] !== null) {
-                throw new ApiError('Einladung wurde bereits verwendet', 409);
-            }
-            $token = create_invitation_token();
-            $pdo->prepare(
-                'UPDATE invitations SET token_hash = ?, sent_at = NULL, expires_at = ? WHERE id = ? AND used_at IS NULL'
-            )->execute([token_hash($token), invitation_expiry($inv['starts_at']), $id]);
-            json_out(['id' => (int)$inv['id'], 'email' => $inv['email'], 'url' => invitation_url($token)]);
-
-        case 'mark_sent':
-            require_method('POST');
-            $in = json_body();
-            $ids = array_values(array_filter(
-                array_map('intval', (array)($in['ids'] ?? [])),
-                fn($i) => $i > 0
-            ));
-            if ($ids) {
-                $placeholders = implode(',', array_fill(0, count($ids), '?'));
-                $pdo->prepare("UPDATE invitations SET sent_at = NOW() WHERE id IN ($placeholders)")
-                    ->execute($ids);
-            }
-            json_out(['updated' => count($ids)]);
+            find_training($id);
+            $pdo->prepare('DELETE FROM trainings WHERE id = ?')->execute([$id]);
+            json_out(['ok' => true]);
 
         default:
             throw new ApiError('Unbekannte Aktion', 404);
@@ -204,15 +135,16 @@ try {
     error_log('TrainingListmanager API: ' . $e->getMessage());
     // Details nur für den angemeldeten Client (Admin), sonst generisch
     $detail = !empty($authenticated) ? ': ' . $e->getMessage() : '';
-    if (!empty($authenticated) && $e instanceof PDOException && strpos($e->getMessage(), 'sent_at') !== false) {
-        $detail .= ' – bitte sql/migrations/002_invitations_sent_at.sql in phpMyAdmin ausführen.';
+    if (!empty($authenticated) && $e instanceof PDOException
+        && strpos($e->getMessage(), 'Unknown column') !== false) {
+        $detail .= ' – bitte sql/migrations/004_training_code_consent.sql in phpMyAdmin ausführen.';
     }
     json_out(['error' => 'Serverfehler' . $detail], 500);
 }
 
 function normalize_training(array $t): array
 {
-    foreach (['id', 'invited', 'sent', 'registered'] as $k) {
+    foreach (['id', 'registered'] as $k) {
         if (isset($t[$k])) {
             $t[$k] = (int)$t[$k];
         }

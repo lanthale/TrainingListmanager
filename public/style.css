@@ -1,4 +1,5 @@
-/* Design nach www.mind-architects.de: dunkles Blaugrau, Bronze-Akzent, Abel / Afacad Flux */
+/* Design nach www.mind-architects.de: dunkles Blaugrau, Bronze-Akzent, Abel / Afacad Flux
+   Schriften: SIL Open Font License 1.1, Lizenztexte in fonts/OFL-Abel.txt und fonts/OFL-AfacadFlux.txt */
 
 @font-face {
     font-family: "Abel";
@@ -142,6 +143,49 @@ button {
 }
 button:hover { background: var(--accent-hover); }
 button:focus-visible { outline: 2px solid var(--text); outline-offset: 3px; }
+
+/* Datenschutzhinweis und Einwilligung */
+.privacy {
+    margin-top: 1.5rem;
+    padding: 1rem 1.25rem;
+    border: 1px solid var(--panel-line);
+    background: rgba(255, 255, 255, .03);
+    color: var(--muted);
+    font-size: .95rem;
+}
+.privacy h3 {
+    margin: 0 0 .5rem;
+    font-family: var(--display);
+    font-size: .85rem;
+    font-weight: 500;
+    letter-spacing: .15em;
+    text-transform: uppercase;
+    color: var(--text);
+}
+.privacy p { margin: .5rem 0 0; }
+.privacy strong { color: var(--text); font-weight: 400; }
+.privacy a, .consent a { color: var(--accent); }
+
+label.consent {
+    display: flex;
+    gap: .75rem;
+    align-items: flex-start;
+    margin-top: 1rem;
+    font-family: var(--body);
+    font-size: 1rem;
+    letter-spacing: normal;
+    text-transform: none;
+    color: var(--text);
+    cursor: pointer;
+}
+.consent input {
+    flex: none;
+    width: 1.25rem;
+    height: 1.25rem;
+    margin: .2rem 0 0;
+    accent-color: var(--accent);
+}
+.consent input[aria-invalid="true"] { outline: 2px solid var(--error); outline-offset: 2px; }
 
 /* Meldungen */
 .notice, .success {
